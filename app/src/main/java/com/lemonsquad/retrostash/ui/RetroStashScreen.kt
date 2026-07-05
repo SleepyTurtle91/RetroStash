@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.Settings
@@ -27,6 +27,7 @@ import com.lemonsquad.retrostash.ui.viewmodel.MainViewModel
 @Composable
 fun RetroStashScreen(
     onSettingsClick: () -> Unit = {},
+    onDownloadsClick: () -> Unit = {},
     viewModel: MainViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -36,7 +37,6 @@ fun RetroStashScreen(
     val selectedFolderUri by viewModel.selectedFolderUri.collectAsState()
     
     var identifier by remember { mutableStateOf("") }
-    var aiQuery by remember { mutableStateOf("") }
     
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -74,6 +74,9 @@ fun RetroStashScreen(
             TopAppBar(
                 title = { Text("RetroStash") },
                 actions = {
+                    IconButton(onClick = onDownloadsClick) {
+                        Icon(Icons.Default.Download, contentDescription = "Downloads")
+                    }
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -103,31 +106,6 @@ fun RetroStashScreen(
                     isLoading = isLoading
                 )
                 
-                if (uiState.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = aiQuery,
-                            onValueChange = { aiQuery = it },
-                            placeholder = { Text("AI Filter (e.g. 'Only RPGs')") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) }
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Button(
-                            onClick = { viewModel.applyAiFilter(aiQuery) },
-                            enabled = aiQuery.isNotBlank() && !isAiFiltering
-                        ) {
-                            Text("Filter")
-                        }
-                    }
-                }
-
                 if (selectedFolderUri == null) {
                     Text(
                         text = "Please select a destination folder (SD Card) using the folder icon above.",
@@ -182,7 +160,9 @@ fun RetroStashScreenPreview() {
                 FileItem(
                     fileItem = com.lemonsquad.retrostash.ui.viewmodel.FileItemState(
                         com.lemonsquad.retrostash.data.model.ArchiveFile("game.zip", "ZIP", "100 MB"),
-                        com.lemonsquad.retrostash.ui.viewmodel.FileStatus.IDLE
+                        com.lemonsquad.retrostash.ui.viewmodel.FileStatus.IDLE,
+                        identifier = "example_id",
+                        uploader = "example_uploader"
                     ),
                     onDownloadClick = {}
                 )

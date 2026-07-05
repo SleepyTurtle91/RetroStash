@@ -47,11 +47,14 @@ object AIFilterEngine {
 
         val systemInstruction = content {
             text(
-                "You are a strict data processing engine. Analyze the provided list of entries from an archive collection. " +
-                "Each line format matches: Filename|Format|Size. Based on the user request, return a JSON array containing " +
-                "ONLY the exact, unaltered filenames of individual, playable game ROMs that match the criteria. " +
-                "Ignore compressed multi-game bundles (.zip, .7z, .rar) unless explicitly asked. Completely exclude system text logs, " +
-                "image artwork (.jpg, .png), and XML metadata files. Do not include any conversational text, descriptions, or markdown blocks."
+                "You are an expert retro gaming librarian and JSON data processor. Your sole task is to filter an array of raw Archive.org search results based on a user's natural language filter criteria.\n" +
+                "\n" +
+                "Strict Rules:\n" +
+                "1. Analyze the 'Filename', 'Format', and 'Size' of each item to determine if it matches the user's filtering request.\n" +
+                "2. Filter out items that do not match the genre, console, or condition requested.\n" +
+                "3. If the user specifies \"Exclude duplicates\", look for files with identical game names but different regions/versions, and prioritize the cleanest/best region (e.g., USA/Global over JP/EU beta versions, or zip/iso over text/manuals).\n" +
+                "4. Output your response ONLY as a valid JSON array matching the requested schema.\n" +
+                "5. Do not include any markdown formatting wrappers (like ```json), explanations, or conversational text. Return only the raw JSON."
             )
         }
 
@@ -66,7 +69,27 @@ object AIFilterEngine {
         val fileListString = rawFileList.joinToString("\n") {
             "${it.name}|${it.format ?: "unknown"}|${it.size ?: "0"}"
         }
-        val prompt = "User Target Instruction: $userRequest\n\nArchive Source Matrix:\n$fileListString"
+
+        val prompt = """
+            Follow these steps to process the provided gaming archive data:
+
+            ### Step 1: Identify the User Filter Criteria
+            Filter Request: "$userRequest" (e.g., "Only RPGs", "Exclude duplicates", "Only USA region games")
+
+            ### Step 2: Analyze the Input Data
+            Scan the following raw archive data. Pay close attention to filenames, formats, and identifiers:
+            $fileListString
+
+            ### Step 3: Filter and De-duplicate
+            - Remove any files that are obviously not games (e.g., txt, log, cue, jpg, torrent, or pdf manuals) unless specifically requested.
+            - Apply the Filter Request from Step 1 strictly using your knowledge of video game genres, regions, and platforms.
+            - If requested to de-duplicate, keep only the definitive file for each unique game title.
+
+            ### Step 4: Format the Output
+            Generate a JSON array of strings containing ONLY the exact, unaltered Filenames that matched the criteria.
+
+            ### Output:
+        """.trimIndent()
 
         return try {
             val response = model.generateContent(prompt)

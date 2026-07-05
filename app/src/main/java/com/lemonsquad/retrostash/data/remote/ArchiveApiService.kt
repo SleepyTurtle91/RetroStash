@@ -15,9 +15,10 @@ interface ArchiveApiService {
     @GET("advancedsearch.php")
     suspend fun search(
         @Query("q") query: String,
-        @Query("fl[]") fields: List<String> = listOf("identifier", "title"),
+        @Query("fl[]") fields: List<String> = listOf("identifier", "title", "uploader", "mediatype"),
         @Query("output") output: String = "json",
         @Query("rows") rows: Int = 50,
-        @Query("page") page: Int = 1
+        @Query("page") page: Int = 1,
+        @Query("sort[]") sort: String = "downloads desc"
     ): ArchiveSearchResponse
 }

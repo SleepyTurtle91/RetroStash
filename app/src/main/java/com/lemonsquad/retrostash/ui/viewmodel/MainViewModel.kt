@@ -13,6 +13,7 @@ import com.lemonsquad.retrostash.data.remote.AIFilterEngine
 import com.lemonsquad.retrostash.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.first
 import com.lemonsquad.retrostash.data.model.ArchiveFile
+import com.lemonsquad.retrostash.data.model.ArchiveMetadata
 import com.lemonsquad.retrostash.data.remote.ArchiveApiService
 import com.lemonsquad.retrostash.service.ArchiveDownloadManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,8 @@ enum class FileStatus {
 data class FileItemState(
     val file: ArchiveFile,
     val status: FileStatus = FileStatus.IDLE,
+    val identifier: String,
+    val uploader: String? = null
 )
 
 sealed class AiFilterEvent {
@@ -154,70 +157,92 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     null
                 }
 
-                // If direct identifier fails or has no files, try search
-                if (metadata == null || metadata.files.isEmpty()) {
-                    Log.d("MainViewModel", "Direct identifier failed or empty, trying search")
-                    val searchQuery = "$query mediatype:software"
+                val allFoundFileStates = mutableListOf<FileItemState>()
+
+                // If direct identifier worked, convert its files to states
+                if (metadata != null && metadata.files.isNotEmpty()) {
+                    val allowedExtensions = setOf(
+                        "iso", "sfc", "bin", "smd", "gba", "nes", "n64", "chd", "cue",
+                        "zip", "7z", "rar", "z64", "v64", "nds", "3ds", "pbp", "cso", "rvz"
+                    )
+                    val blockedExtensions = setOf("xml", "txt", "json", "png", "jpg")
+                    
+                    val validFiles = metadata.files.filter { file ->
+                        val ext = file.name.substringAfterLast('.', "").lowercase()
+                        val lowerName = file.name.lowercase()
+                        ext in allowedExtensions && ext !in blockedExtensions && 
+                        !lowerName.contains("__ia_thumb") && !lowerName.startsWith("_")
+                    }
+                    
+                    allFoundFileStates.addAll(validFiles.map { 
+                        FileItemState(file = it, identifier = targetIdentifier) 
+                    })
+                }
+
+                // If direct identifier failed or we want more (matching archive.org search), perform search
+                if (allFoundFileStates.isEmpty() || !query.contains(":")) {
+                    Log.d("MainViewModel", "Performing optimized search for: $query")
+                    val searchQuery = com.lemonsquad.retrostash.data.remote.ArchiveQueryBuilder.buildOptimizedQuery(query)
                     val searchResponse = apiService.search(searchQuery)
                     Log.d("MainViewModel", "Search found ${searchResponse.response.docs.size} documents")
                     
-                    // Try top results until we find one with archive files
-                    for (doc in searchResponse.response.docs) {
-                        targetIdentifier = doc.identifier
-                        Log.d("MainViewModel", "Checking search result identifier: $targetIdentifier")
-                        val potentialMetadata = try {
-                            apiService.getMetadata(targetIdentifier)
+                    val allowedExtensions = setOf(
+                        "iso", "sfc", "bin", "smd", "gba", "nes", "n64", "chd", "cue",
+                        "zip", "7z", "rar", "z64", "v64", "nds", "3ds", "pbp", "cso", "rvz"
+                    )
+
+                    // Collect files from top results
+                    for (doc in searchResponse.response.docs.take(10)) { 
+                        val resultIdentifier = doc.identifier
+                        val resultUploader = doc.uploader
+                        Log.d("MainViewModel", "Checking search result identifier: $resultIdentifier")
+                        val resultMetadata = try {
+                            apiService.getMetadata(resultIdentifier)
                         } catch (e: Exception) {
                             null
                         }
                         
-                        val allowedExtensions = setOf("iso", "sfc", "bin", "smd", "gba", "nes", "n64", "chd", "cue")
-                        if (potentialMetadata != null && potentialMetadata.files.any { file ->
-                            val ext = file.name.substringAfterLast('.', "").lowercase()
-                            ext in allowedExtensions
-                        }) {
-                            Log.i("MainViewModel", "Found valid collection in search result: $targetIdentifier")
-                            metadata = potentialMetadata
-                            break
+                        if (resultMetadata != null) {
+                            val validFiles = resultMetadata.files.filter { file ->
+                                val ext = file.name.substringAfterLast('.', "").lowercase()
+                                val lowerName = file.name.lowercase()
+                                ext in allowedExtensions && !lowerName.contains("__ia_thumb") && !lowerName.startsWith("_")
+                            }
+                            if (validFiles.isNotEmpty()) {
+                                if (allFoundFileStates.isEmpty()) {
+                                    targetIdentifier = resultIdentifier 
+                                }
+                                allFoundFileStates.addAll(validFiles.map { 
+                                    FileItemState(file = it, identifier = resultIdentifier, uploader = resultUploader) 
+                                })
+                                Log.i("MainViewModel", "Added ${validFiles.size} files from $resultIdentifier")
+                            }
                         }
                     }
                 }
 
-                if (metadata != null) {
+                if (allFoundFileStates.isNotEmpty()) {
                     _currentIdentifier.value = targetIdentifier
-                    Log.i("MainViewModel", "Loaded metadata for identifier: $targetIdentifier. Total files: ${metadata.files.size}")
                     
-                    val allowedExtensions = setOf("iso", "sfc", "bin", "smd", "gba", "nes", "n64", "chd", "cue")
-                    val blockedExtensions = setOf("xml", "txt", "json", "png", "jpg", "zip", "7z", "rar")
-                    
-                    val archiveFiles = metadata.files.asSequence()
-                        .filter { file ->
-                            val ext = file.name.substringAfterLast('.', "").lowercase()
-                            val lowerName = file.name.lowercase()
-                            
-                            // Refined filtering criteria
-                            val isAllowedExt = ext in allowedExtensions
-                            val isBlockedExt = ext in blockedExtensions
-                            val isThumb = lowerName.contains("__ia_thumb")
-                            val isMetadataDir = lowerName.startsWith("_")
-                            
-                            if (isAllowedExt && !isBlockedExt && !isThumb && !isMetadataDir) {
-                                 Log.d("MainViewModel", "Including file: ${file.name} (Source: ${file.source})")
-                                 true
-                            } else {
-                                 false
-                            }
-                        }
-                        .sortedWith(
-                            compareByDescending<ArchiveFile> { it.source == "original" }
-                                .thenBy { it.name }
-                        )
-                        .toList()
+                    val sortedStates = allFoundFileStates.sortedWith(
+                        compareByDescending<FileItemState> { it.file.source == "original" }
+                            .thenBy { it.file.name }
+                    )
 
-                    Log.i("MainViewModel", "Filtered ROM files: ${archiveFiles.size}")
-                    _uiState.value = archiveFiles.map { FileItemState(it) }
+                    Log.i("MainViewModel", "Total Filtered ROM files: ${sortedStates.size}")
+                    _uiState.value = sortedStates
+
+                    // Silent AI Auditor Trigger (Fallback logic included)
+                    val apiKey = settingsRepository.geminiApiKeyFlow.first()
+                    val isAuditorEnabled = settingsRepository.isAiAuditorEnabledFlow.first()
+                    
+                    if (!apiKey.isNullOrBlank() && isAuditorEnabled) {
+                        applyAiFilter(query)
+                    } else {
+                        Log.i("MainViewModel", "Skipping AI Audit: API Key missing or Auditor disabled.")
+                    }
                 } else {
-                    Log.w("MainViewModel", "No metadata found for query: $query")
+                    Log.w("MainViewModel", "No valid files found for query: $query")
                     _uiState.value = emptyList()
                 }
             } catch (e: Exception) {
@@ -230,7 +255,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun downloadFile(fileItem: FileItemState) {
-        val identifier = _currentIdentifier.value ?: return
+        val identifier = fileItem.identifier
         val folderUri = _selectedFolderUri.value ?: return
         val fileName = fileItem.file.name
         downloadManager.enqueueDownload(identifier, fileName)

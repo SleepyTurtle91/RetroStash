@@ -78,6 +78,18 @@ fun FileItem(
                     text = "Size: ${fileItem.file.size ?: "Unknown"}",
                     style = MaterialTheme.typography.bodySmall
                 )
+                Text(
+                    text = "ID: ${fileItem.identifier}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                fileItem.uploader?.let {
+                    Text(
+                        text = "Uploader: $it",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
             }
             
             val buttonText = when (fileItem.status) {

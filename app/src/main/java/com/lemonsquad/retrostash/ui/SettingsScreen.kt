@@ -16,6 +16,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.lemonsquad.retrostash.BuildConfig
 import com.lemonsquad.retrostash.ui.theme.RetroStashTheme
 import com.lemonsquad.retrostash.ui.viewmodel.SettingsViewModel
 
@@ -26,12 +27,15 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
+    val isAiAuditorEnabled by viewModel.isAiAuditorEnabled.collectAsState()
     
     SettingsScreenContent(
         geminiApiKey = geminiApiKey,
+        isAiAuditorEnabled = isAiAuditorEnabled,
         onBackClick = onBackClick,
         onSaveApiKey = { viewModel.saveGeminiApiKey(it) },
-        onClearApiKey = { viewModel.clearGeminiApiKey() }
+        onClearApiKey = { viewModel.clearGeminiApiKey() },
+        onToggleAiAuditor = { viewModel.setAiAuditorEnabled(it) }
     )
 }
 
@@ -39,9 +43,11 @@ fun SettingsScreen(
 @Composable
 fun SettingsScreenContent(
     geminiApiKey: String?,
+    isAiAuditorEnabled: Boolean,
     onBackClick: () -> Unit,
     onSaveApiKey: (String) -> Unit,
-    onClearApiKey: () -> Unit
+    onClearApiKey: () -> Unit,
+    onToggleAiAuditor: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     var apiKeyInput by remember { mutableStateOf("") }
@@ -107,6 +113,29 @@ fun SettingsScreenContent(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Silent AI Auditor", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Automatically refine search results using AI.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Switch(
+                    checked = isAiAuditorEnabled,
+                    onCheckedChange = onToggleAiAuditor,
+                    enabled = geminiApiKey != null
+                )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             OutlinedButton(
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, "https://aistudio.google.com/".toUri())
@@ -130,6 +159,15 @@ fun SettingsScreenContent(
                     Text("Clear Saved Key")
                 }
             }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Text(
+                text = "Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
     }
 }
@@ -140,9 +178,11 @@ fun SettingsScreenPreview() {
     RetroStashTheme {
         SettingsScreenContent(
             geminiApiKey = null,
+            isAiAuditorEnabled = false,
             onBackClick = {},
             onSaveApiKey = {},
-            onClearApiKey = {}
+            onClearApiKey = {},
+            onToggleAiAuditor = {}
         )
     }
 }

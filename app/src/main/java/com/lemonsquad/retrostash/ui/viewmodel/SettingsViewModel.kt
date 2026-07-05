@@ -19,6 +19,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = null
         )
 
+    val isAiAuditorEnabled: StateFlow<Boolean> = settingsRepository.isAiAuditorEnabledFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
     fun saveGeminiApiKey(key: String) {
         viewModelScope.launch {
             settingsRepository.saveGeminiApiKey(key)
@@ -28,6 +35,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun clearGeminiApiKey() {
         viewModelScope.launch {
             settingsRepository.clearGeminiApiKey()
+        }
+    }
+
+    fun setAiAuditorEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAiAuditorEnabled(enabled)
         }
     }
 }

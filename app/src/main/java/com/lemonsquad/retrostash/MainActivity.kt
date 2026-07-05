@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.lemonsquad.retrostash.ui.DownloadsScreen
 import com.lemonsquad.retrostash.ui.RetroStashScreen
 import com.lemonsquad.retrostash.ui.SettingsScreen
 import com.lemonsquad.retrostash.ui.theme.RetroStashTheme
@@ -26,11 +27,17 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "main" -> {
                             RetroStashScreen(
-                                onSettingsClick = { currentScreen = "settings" }
+                                onSettingsClick = { currentScreen = "settings" },
+                                onDownloadsClick = { currentScreen = "downloads" }
                             )
                         }
                         "settings" -> {
                             SettingsScreen(
+                                onBackClick = { currentScreen = "main" }
+                            )
+                        }
+                        "downloads" -> {
+                            DownloadsScreen(
                                 onBackClick = { currentScreen = "main" }
                             )
                         }

@@ -15,6 +15,7 @@ class SettingsRepository(private val context: Context) {
 
     private val KEY_SD_CARD_URI = stringPreferencesKey("sd_card_uri")
     private val KEY_GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
+    private val KEY_AI_AUDITOR_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("ai_auditor_enabled")
 
     val sdCardUriFlow: Flow<String?> = context.dataStore.data
         .map { preferences ->
@@ -26,6 +27,11 @@ class SettingsRepository(private val context: Context) {
             preferences[KEY_GEMINI_API_KEY]
         }
 
+    val isAiAuditorEnabledFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[KEY_AI_AUDITOR_ENABLED] ?: false
+        }
+
     suspend fun saveSdCardUri(uri: String) {
         context.dataStore.edit { preferences ->
             preferences[KEY_SD_CARD_URI] = uri
@@ -35,6 +41,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun saveGeminiApiKey(key: String) {
         context.dataStore.edit { preferences ->
             preferences[KEY_GEMINI_API_KEY] = key
+        }
+    }
+
+    suspend fun setAiAuditorEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_AI_AUDITOR_ENABLED] = enabled
         }
     }
 

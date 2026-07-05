@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import java.io.File
 import java.io.FileOutputStream
 import java.util.zip.ZipInputStream
@@ -25,6 +26,9 @@ class UnzipWorker(
             Log.e("UnzipWorker", "File does not exist: $filePath")
             return Result.failure()
         }
+
+        val totalBytes = zipFile.length()
+        var extractedBytes = 0L
 
         val treeUri = Uri.parse(treeUriString)
         val pickedDir = DocumentFile.fromTreeUri(applicationContext, treeUri) ?: return Result.failure()
@@ -56,7 +60,16 @@ class UnzipWorker(
                             val newFile = targetParentDir.createFile("application/octet-stream", fileName)
                             if (newFile != null) {
                                 applicationContext.contentResolver.openOutputStream(newFile.uri)?.use { fos ->
-                                    zis.copyTo(fos)
+                                    val buffer = ByteArray(8192)
+                                    var bytesRead: Int
+                                    while (zis.read(buffer).also { bytesRead = it } != -1) {
+                                        fos.write(buffer, 0, bytesRead)
+                                        extractedBytes += bytesRead
+                                        
+                                        // Update progress
+                                        val progress = (extractedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
+                                        setProgress(workDataOf("progress" to progress))
+                                    }
                                 }
                             }
                         }

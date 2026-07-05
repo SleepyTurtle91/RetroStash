@@ -16,5 +16,7 @@ data class SearchResponseData(
 @Serializable
 data class SearchDoc(
     @SerialName("identifier") val identifier: String,
-    @SerialName("title") val title: String? = null
+    @SerialName("title") val title: String? = null,
+    @SerialName("uploader") val uploader: String? = null,
+    @SerialName("mediatype") val mediatype: String? = null
 )
