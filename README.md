@@ -6,7 +6,8 @@ RetroStash is an Android application designed for retro gaming enthusiasts. It a
 
 - **Collection Browsing**: Search for game collections by platform or identifier.
 - **AI-Powered Filtering**: Use natural language prompts (powered by Gemini 1.5 Flash) to filter through large lists of files (e.g., "Only RPGs", "Exclude duplicates").
-- **Integrated Download Manager**: Easily download ROMs to a specified folder on your device.
+- **Real-time Download Monitoring**: A dedicated Downloads screen to track active ROM downloads and extraction progress with live progress bars.
+- **Automatic Extraction**: Downloaded ZIP/RAR/7z archives are automatically unzipped to your RetroStash folder.
 - **Clean UI**: Built with Jetpack Compose for a modern and responsive user experience.
 
 ## Getting Started
