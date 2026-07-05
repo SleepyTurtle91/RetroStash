@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.database.Cursor
+import android.net.Uri
 import android.util.Log
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
@@ -33,8 +34,8 @@ class DownloadCompletedReceiver : BroadcastReceiver() {
                     val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
                     val localUri = cursor.getString(localUriIndex)
                     
-                    // Convert URI to file path
-                    val filePath = localUri?.replace("file://", "")
+                    // Convert URI to file path correctly by decoding
+                    val filePath: String? = if (localUri != null) Uri.parse(localUri).path else null
 
                     if (filePath != null && (filePath.endsWith(".zip") || filePath.endsWith(".7z") || filePath.endsWith(".rar"))) {
                         enqueueUnzipWork(context, filePath)

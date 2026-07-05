@@ -10,7 +10,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import java.io.File
 import java.io.FileOutputStream
-import java.util.zip.ZipInputStream
+import java.util.zip.ZipFile
 
 class UnzipWorker(
     context: Context,
@@ -27,9 +27,6 @@ class UnzipWorker(
             return Result.failure()
         }
 
-        val totalBytes = zipFile.length()
-        var extractedBytes = 0L
-
         val treeUri = Uri.parse(treeUriString)
         val pickedDir = DocumentFile.fromTreeUri(applicationContext, treeUri) ?: return Result.failure()
 
@@ -41,9 +38,13 @@ class UnzipWorker(
         }
 
         return try {
-            ZipInputStream(zipFile.inputStream()).use { zis ->
-                var entry = zis.nextEntry
-                while (entry != null) {
+            ZipFile(zipFile).use { zf ->
+                val entries = zf.entries()
+                val totalUncompressedSize = zf.entries().asSequence().sumOf { it.size }
+                var extractedBytes = 0L
+
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
                     if (entry.isDirectory) {
                         createDirectoryRecursive(outputDir, entry.name)
                     } else {
@@ -60,22 +61,24 @@ class UnzipWorker(
                             val newFile = targetParentDir.createFile("application/octet-stream", fileName)
                             if (newFile != null) {
                                 applicationContext.contentResolver.openOutputStream(newFile.uri)?.use { fos ->
-                                    val buffer = ByteArray(8192)
-                                    var bytesRead: Int
-                                    while (zis.read(buffer).also { bytesRead = it } != -1) {
-                                        fos.write(buffer, 0, bytesRead)
-                                        extractedBytes += bytesRead
-                                        
-                                        // Update progress
-                                        val progress = (extractedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
-                                        setProgress(workDataOf("progress" to progress))
+                                    zf.getInputStream(entry).use { inputStream ->
+                                        val buffer = ByteArray(8192)
+                                        var bytesRead: Int
+                                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                            fos.write(buffer, 0, bytesRead)
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                    zis.closeEntry()
-                    entry = zis.nextEntry
+                    
+                    // Update progress based on entry size
+                    extractedBytes += entry.size
+                    if (totalUncompressedSize > 0) {
+                        val progress = (extractedBytes.toFloat() / totalUncompressedSize).coerceIn(0f, 1f)
+                        setProgress(workDataOf("progress" to progress))
+                    }
                 }
             }
 
