@@ -12,8 +12,8 @@ android {
         applicationId = "com.lemonsquad.retrostash"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -32,6 +32,16 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            force("io.ktor:ktor-client-core:2.3.12")
+            force("io.ktor:ktor-client-okhttp:2.3.12")
+            force("io.ktor:ktor-client-content-negotiation:2.3.12")
+            force("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
+            force("io.ktor:ktor-client-logging:2.3.12")
+        }
     }
 }
 
@@ -60,6 +70,9 @@ dependencies {
     implementation(libs.google.generativeai)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.logging)
     implementation("androidx.compose.material:material-icons-extended")
 
     testImplementation(libs.junit)

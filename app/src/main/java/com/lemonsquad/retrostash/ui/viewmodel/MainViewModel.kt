@@ -99,9 +99,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     _aiFilterEvent.value = AiFilterEvent.Error("AI found no matches or encountered an error.")
                 }
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "AI Filtering failed", e)
-                _aiFilterEvent.value = AiFilterEvent.Error("AI Filtering failed: ${e.message}")
+            } catch (t: Throwable) {
+                Log.e("MainViewModel", "AI Filtering failed", t)
+                _aiFilterEvent.value = AiFilterEvent.Error("AI Filtering failed: ${t.message}")
             } finally {
                 _isAiFiltering.value = false
             }
