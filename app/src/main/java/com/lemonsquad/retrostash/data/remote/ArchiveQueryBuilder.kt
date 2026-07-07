@@ -23,12 +23,16 @@ object ArchiveQueryBuilder {
             return sanitizedInput
         }
 
-        // Support partial matching by wrapping in wildcards if not already present
-        val searchTerms = if (!sanitizedInput.contains("*")) {
-            "*$sanitizedInput*"
-        } else {
-            sanitizedInput
-        }
+        // Support partial matching by wrapping each term in wildcards if not already present
+        val searchTerms = sanitizedInput.split("\\s+".toRegex())
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { term ->
+                if (term.contains("*") || term.contains(":")) {
+                    term
+                } else {
+                    "$term*"
+                }
+            }
 
         // 1. The Lucene Boost: Forces the API to prioritize titles, identifiers, and subjects
         val boostedTerms = "(title:($searchTerms)^100 OR identifier:($searchTerms)^100 OR subject:($searchTerms)^50 OR ($searchTerms))"

@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -87,18 +89,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             _isAiFiltering.value = true
             try {
-                val filteredFilenames = AIFilterEngine.filterCollection(
-                    apiKey = apiKey,
-                    userRequest = userRequest,
-                    rawFileList = currentFiles
-                )
+                // Perform filtering in a background thread to avoid blocking UI during large list processing
+                val filteredFilenames = withContext(Dispatchers.Default) {
+                    AIFilterEngine.filterCollection(
+                        apiKey = apiKey,
+                        userRequest = userRequest,
+                        rawFileList = currentFiles
+                    )
+                }
 
-                if (filteredFilenames.isNotEmpty()) {
+                if (filteredFilenames == null) {
+                    _aiFilterEvent.value = AiFilterEvent.Error("AI Filtering failed. Keeping existing results.")
+                } else if (filteredFilenames.isNotEmpty()) {
                     _uiState.value = _uiState.value.filter { state ->
                         filteredFilenames.contains(state.file.name)
                     }
                 } else {
-                    _aiFilterEvent.value = AiFilterEvent.Error("AI found no matches or encountered an error.")
+                    _aiFilterEvent.value = AiFilterEvent.Error("AI found no matches.")
                 }
             } catch (t: Throwable) {
                 Log.e("MainViewModel", "AI Filtering failed", t)
@@ -124,6 +131,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val json = Json { ignoreUnknownKeys = true }
     
     private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor { message -> 
             Log.i("ArchiveApi", message)
         }.apply {

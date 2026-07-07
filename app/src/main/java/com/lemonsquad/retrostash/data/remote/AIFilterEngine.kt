@@ -1,5 +1,6 @@
 package com.lemonsquad.retrostash.data.remote
 
+import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.Schema
 import com.google.ai.client.generativeai.type.content
@@ -29,7 +30,7 @@ object AIFilterEngine {
         apiKey: String,
         userRequest: String,
         rawFileList: List<ArchiveFile>
-    ): List<String> {
+    ): List<String>? {
         if (apiKey.isBlank() || rawFileList.isEmpty()) return emptyList()
 
         // Define a strict schema: a raw array of strings
@@ -59,7 +60,7 @@ object AIFilterEngine {
         }
 
         val model = GenerativeModel(
-            modelName = "gemini-1.5-flash",
+            modelName = "gemini-2.5-flash",
             apiKey = apiKey,
             generationConfig = config,
             systemInstruction = systemInstruction
@@ -98,8 +99,8 @@ object AIFilterEngine {
             // Parsing logic to turn the AI's JSON string back into a Kotlin List<String>
             json.decodeFromString<List<String>>(responseText)
         } catch (e: Exception) {
-            e.printStackTrace()
-            emptyList()
+            Log.e("AIFilterEngine", "AI Filtering failed or returned invalid JSON", e)
+            null
         }
     }
 }

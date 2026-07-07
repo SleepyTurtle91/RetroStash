@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-07-07
+
+### Added
+- **Model Upgrade**: Upgraded the AI model to `gemini-2.5-flash` for more accurate natural language filtering.
+- **Background Filtering**: Moved AI list filtering to the `Dispatchers.Default` background thread to keep the UI smooth and responsive during large list processing.
+
+### Improved
+- **Partial Matching**: Enhanced `ArchiveQueryBuilder` to apply partial matching wildcards to each individual search term.
+- **Network Timeouts**: Configured 30-second connect, read, and write timeouts for `OkHttpClient` to prevent requests from hanging.
+- **Error Handling**: Gracefully fallback and report errors when the AI filter returns an invalid response.
+
 ## [1.1.1] - 2026-07-07
 
 ### Added
