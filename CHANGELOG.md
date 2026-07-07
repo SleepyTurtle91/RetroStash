@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-07-08
+
+### Fixed
+- **Search Engine Logic**: Updated collection loading to perform automated searches via `ArchiveQueryBuilder` and load the best match if a direct identifier fails.
+- **AI Auditor Integration**: Integrated the Silent AI Auditor into the main search flow to automatically filter out junk and manual files.
+- **Download Path Resolution**: Resolved a failure where `content://` URIs weren't properly parsed by extracting the filename directly and passing the URI.
+- **Extraction Error**: Refactored `UnzipWorker` to use a stream-based unzipping method (`ZipInputStream`) via `contentResolver`, resolving Scoped Storage extraction restrictions.
+
+### Added
+- **User-Agent Header**: Added a User-Agent header (`RetroStash-App (Android; DownloadManager)`) to prevent the system DownloadManager from being blocked by Archive.org.
+
 ## [1.1.2] - 2026-07-07
 
 ### Added
