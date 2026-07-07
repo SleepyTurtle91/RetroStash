@@ -26,6 +26,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             initialValue = false
         )
 
+    val maxActiveDownloads: StateFlow<Int> = settingsRepository.maxActiveDownloadsFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 2
+        )
+
     fun saveGeminiApiKey(key: String) {
         viewModelScope.launch {
             settingsRepository.saveGeminiApiKey(key)
@@ -41,6 +48,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setAiAuditorEnabled(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setAiAuditorEnabled(enabled)
+        }
+    }
+
+    fun setMaxActiveDownloads(count: Int) {
+        viewModelScope.launch {
+            settingsRepository.setMaxActiveDownloads(count)
         }
     }
 }

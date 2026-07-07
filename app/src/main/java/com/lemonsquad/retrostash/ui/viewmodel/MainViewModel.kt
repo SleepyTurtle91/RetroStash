@@ -16,6 +16,7 @@ import com.lemonsquad.retrostash.data.model.ArchiveFile
 import com.lemonsquad.retrostash.data.model.ArchiveMetadata
 import com.lemonsquad.retrostash.data.remote.ArchiveApiService
 import com.lemonsquad.retrostash.service.ArchiveDownloadManager
+import com.lemonsquad.retrostash.service.DownloadQueueManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,7 +57,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _aiFilterEvent = MutableStateFlow<AiFilterEvent?>(null)
     val aiFilterEvent: StateFlow<AiFilterEvent?> = _aiFilterEvent.asStateFlow()
 
-    private val downloadManager = ArchiveDownloadManager(application)
+    private val queueManager = DownloadQueueManager(application)
     private val workManager = WorkManager.getInstance(application)
     private val settingsRepository = SettingsRepository(application)
 
@@ -256,11 +257,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun downloadFile(fileItem: FileItemState) {
         val identifier = fileItem.identifier
-        val folderUri = _selectedFolderUri.value ?: return
         val fileName = fileItem.file.name
-        downloadManager.enqueueDownload(identifier, fileName)
+        queueManager.enqueue(identifier, fileName)
         
-        // Update state to Downloading
+        // Update state to Downloading (or queued)
         updateFileStatus(fileName, FileStatus.DOWNLOADING)
         
         // Observe WorkManager for unzipping status

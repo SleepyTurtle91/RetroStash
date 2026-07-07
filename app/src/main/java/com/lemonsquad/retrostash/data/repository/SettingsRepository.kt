@@ -16,6 +16,7 @@ class SettingsRepository(private val context: Context) {
     private val KEY_SD_CARD_URI = stringPreferencesKey("sd_card_uri")
     private val KEY_GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
     private val KEY_AI_AUDITOR_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("ai_auditor_enabled")
+    private val KEY_MAX_ACTIVE_DOWNLOADS = androidx.datastore.preferences.core.intPreferencesKey("max_active_downloads")
 
     val sdCardUriFlow: Flow<String?> = context.dataStore.data
         .map { preferences ->
@@ -30,6 +31,11 @@ class SettingsRepository(private val context: Context) {
     val isAiAuditorEnabledFlow: Flow<Boolean> = context.dataStore.data
         .map { preferences ->
             preferences[KEY_AI_AUDITOR_ENABLED] ?: false
+        }
+
+    val maxActiveDownloadsFlow: Flow<Int> = context.dataStore.data
+        .map { preferences ->
+            preferences[KEY_MAX_ACTIVE_DOWNLOADS] ?: 2
         }
 
     suspend fun saveSdCardUri(uri: String) {
@@ -47,6 +53,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAiAuditorEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[KEY_AI_AUDITOR_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setMaxActiveDownloads(count: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_MAX_ACTIVE_DOWNLOADS] = count
         }
     }
 

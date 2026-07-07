@@ -5,10 +5,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,7 +59,10 @@ fun DownloadsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(tasks) { task ->
-                    DownloadTaskItem(task)
+                    DownloadTaskItem(
+                        task = task,
+                        onCancelClick = { viewModel.cancelTask(task) }
+                    )
                 }
             }
         }
@@ -65,57 +70,75 @@ fun DownloadsScreen(
 }
 
 @Composable
-fun DownloadTaskItem(task: DownloadTask) {
+fun DownloadTaskItem(
+    task: DownloadTask,
+    onCancelClick: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxWidth()
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = task.fileName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            val statusText = when (task.status) {
-                DownloadStatus.QUEUED -> "Queued"
-                DownloadStatus.DOWNLOADING -> "Downloading..."
-                DownloadStatus.EXTRACTING -> "Extracting..."
-                DownloadStatus.COMPLETED -> "Completed"
-                DownloadStatus.FAILED -> "Failed"
-            }
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier.weight(1f)
             ) {
-                Text(text = statusText, style = MaterialTheme.typography.bodySmall)
-                if (task.status == DownloadStatus.DOWNLOADING && task.totalSize > 0) {
-                    Text(
-                        text = "${formatSize(task.downloadedSize)} / ${formatSize(task.totalSize)}",
-                        style = MaterialTheme.typography.bodySmall
+                Text(
+                    text = task.fileName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                val statusText = when (task.status) {
+                    DownloadStatus.QUEUED -> "Waiting in Queue..."
+                    DownloadStatus.DOWNLOADING -> "Downloading..."
+                    DownloadStatus.EXTRACTING -> "Extracting..."
+                    DownloadStatus.COMPLETED -> "Completed"
+                    DownloadStatus.FAILED -> "Failed"
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = statusText, style = MaterialTheme.typography.bodySmall)
+                    if (task.status == DownloadStatus.DOWNLOADING && task.totalSize > 0) {
+                        Text(
+                            text = "${formatSize(task.downloadedSize)} / ${formatSize(task.totalSize)}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                if (task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.EXTRACTING) {
+                    LinearProgressIndicator(
+                        progress = { task.progress },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else if (task.status == DownloadStatus.COMPLETED) {
+                    LinearProgressIndicator(
+                        progress = { 1f },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            if (task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.EXTRACTING) {
-                LinearProgressIndicator(
-                    progress = { task.progress },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else if (task.status == DownloadStatus.COMPLETED) {
-                LinearProgressIndicator(
-                    progress = { 1f },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.primary
-                )
+
+            if (task.status != DownloadStatus.COMPLETED) {
+                IconButton(onClick = onCancelClick) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Cancel Download",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }

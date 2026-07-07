@@ -10,6 +10,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.lemonsquad.retrostash.data.model.DownloadStatus
 import com.lemonsquad.retrostash.data.model.DownloadTask
+import com.lemonsquad.retrostash.service.DownloadQueueManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -19,6 +20,7 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val downloadManager = application.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     private val workManager = WorkManager.getInstance(application)
+    private val queueManager = DownloadQueueManager(application)
 
     private val _tasks = MutableStateFlow<List<DownloadTask>>(emptyList())
     val tasks: StateFlow<List<DownloadTask>> = _tasks.asStateFlow()
@@ -32,17 +34,31 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun startPolling() {
         viewModelScope.launch {
-            while (true) {
-                updateDownloadTasks()
-                delay(1000)
-            }
+            combine(
+                flow { while(true) { emit(Unit); delay(1000) } },
+                queueManager.pendingQueue
+            ) { _, pending ->
+                updateDownloadTasks(pending.map { it.filename })
+            }.collect()
         }
     }
 
-    private fun updateDownloadTasks() {
+    private fun updateDownloadTasks(appQueuedFiles: List<String>) {
         val query = DownloadManager.Query()
         val cursor: Cursor? = try { downloadManager.query(query) } catch (e: Exception) { null }
         val currentTasks = mutableListOf<DownloadTask>()
+
+        // Add App-level queued tasks first
+        appQueuedFiles.forEach { fileName ->
+            currentTasks.add(
+                DownloadTask(
+                    id = "queued_$fileName",
+                    fileName = fileName,
+                    status = DownloadStatus.QUEUED,
+                    progress = 0f
+                )
+            )
+        }
 
         if (cursor != null && cursor.moveToFirst()) {
             val idIdx = cursor.getColumnIndex(DownloadManager.COLUMN_ID)
@@ -126,7 +142,13 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
     private fun mergeTasks(dmTasks: List<DownloadTask>, wmTasks: List<DownloadTask>): List<DownloadTask> {
         val merged = mutableMapOf<String, DownloadTask>()
 
-        dmTasks.forEach { merged[it.fileName] = it }
+        dmTasks.forEach { task ->
+            val existing = merged[task.fileName]
+            // Favor DM status if it's already RUNNING or SUCCESSFUL
+            if (existing == null || task.status == DownloadStatus.DOWNLOADING || task.status == DownloadStatus.COMPLETED) {
+                merged[task.fileName] = task
+            }
+        }
 
         wmTasks.forEach { wmTask ->
             val existing = merged[wmTask.fileName]
@@ -142,5 +164,9 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
         }
 
         return merged.values.toList().sortedBy { it.fileName }
+    }
+
+    fun cancelTask(task: DownloadTask) {
+        queueManager.cancel(task.fileName)
     }
 }

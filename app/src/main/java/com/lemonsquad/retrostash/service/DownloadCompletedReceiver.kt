@@ -11,6 +11,7 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.lemonsquad.retrostash.data.repository.SettingsRepository
+import com.lemonsquad.retrostash.service.DownloadQueueManager
 import com.lemonsquad.retrostash.worker.UnzipWorker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -21,6 +22,10 @@ class DownloadCompletedReceiver : BroadcastReceiver() {
         if (intent.action == DownloadManager.ACTION_DOWNLOAD_COMPLETE) {
             val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
             if (id == -1L) return
+
+            // Notify Queue Manager
+            val queueManager = DownloadQueueManager(context)
+            queueManager.onDownloadCompleted(id)
 
             val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val query = DownloadManager.Query().setFilterById(id)

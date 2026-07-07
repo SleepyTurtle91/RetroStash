@@ -28,14 +28,17 @@ fun SettingsScreen(
 ) {
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val isAiAuditorEnabled by viewModel.isAiAuditorEnabled.collectAsState()
+    val maxActiveDownloads by viewModel.maxActiveDownloads.collectAsState()
     
     SettingsScreenContent(
         geminiApiKey = geminiApiKey,
         isAiAuditorEnabled = isAiAuditorEnabled,
+        maxActiveDownloads = maxActiveDownloads,
         onBackClick = onBackClick,
         onSaveApiKey = { viewModel.saveGeminiApiKey(it) },
         onClearApiKey = { viewModel.clearGeminiApiKey() },
-        onToggleAiAuditor = { viewModel.setAiAuditorEnabled(it) }
+        onToggleAiAuditor = { viewModel.setAiAuditorEnabled(it) },
+        onMaxDownloadsChange = { viewModel.setMaxActiveDownloads(it) }
     )
 }
 
@@ -44,10 +47,12 @@ fun SettingsScreen(
 fun SettingsScreenContent(
     geminiApiKey: String?,
     isAiAuditorEnabled: Boolean,
+    maxActiveDownloads: Int,
     onBackClick: () -> Unit,
     onSaveApiKey: (String) -> Unit,
     onClearApiKey: () -> Unit,
-    onToggleAiAuditor: (Boolean) -> Unit
+    onToggleAiAuditor: (Boolean) -> Unit,
+    onMaxDownloadsChange: (Int) -> Unit
 ) {
     val context = LocalContext.current
     var apiKeyInput by remember { mutableStateOf("") }
@@ -136,6 +141,27 @@ fun SettingsScreenContent(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Max Active Downloads", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Limit how many files download at once to save bandwidth.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Slider(
+                    value = maxActiveDownloads.toFloat(),
+                    onValueChange = { onMaxDownloadsChange(it.toInt()) },
+                    valueRange = 1f..10f,
+                    steps = 8
+                )
+                Text(
+                    text = "$maxActiveDownloads files",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.align(Alignment.End)
+                )
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             OutlinedButton(
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, "https://aistudio.google.com/".toUri())
@@ -179,10 +205,12 @@ fun SettingsScreenPreview() {
         SettingsScreenContent(
             geminiApiKey = null,
             isAiAuditorEnabled = false,
+            maxActiveDownloads = 2,
             onBackClick = {},
             onSaveApiKey = {},
             onClearApiKey = {},
-            onToggleAiAuditor = {}
+            onToggleAiAuditor = {},
+            onMaxDownloadsChange = {}
         )
     }
 }
