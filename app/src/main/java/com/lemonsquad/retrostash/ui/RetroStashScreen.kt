@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderCopy
 import androidx.compose.material.icons.filled.FolderSpecial
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -33,8 +35,11 @@ fun RetroStashScreen(
     val uiState by viewModel.uiState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isAiFiltering by viewModel.isAiFiltering.collectAsState()
+    val isSyncingMetadata by viewModel.isSyncingMetadata.collectAsState()
+    val syncProgress by viewModel.syncProgress.collectAsState()
     val aiFilterEvent by viewModel.aiFilterEvent.collectAsState()
     val selectedFolderUri by viewModel.selectedFolderUri.collectAsState()
+    val syncFolderUri by viewModel.syncFolderUri.collectAsState()
     
     var identifier by remember { mutableStateOf("") }
     
@@ -68,6 +73,12 @@ fun RetroStashScreen(
         uri?.let { viewModel.saveFolderUri(it) }
     }
 
+    val syncFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { viewModel.saveSyncFolderUri(it) }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -79,6 +90,21 @@ fun RetroStashScreen(
                     }
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                    IconButton(onClick = { syncFolderLauncher.launch(null) }) {
+                        Icon(
+                            imageVector = if (syncFolderUri == null) 
+                                Icons.Filled.FolderCopy 
+                            else 
+                                Icons.Filled.FolderCopy,
+                            contentDescription = "Select Sync Folder",
+                            tint = if (syncFolderUri != null) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                        )
+                    }
+                    if (selectedFolderUri != null || syncFolderUri != null) {
+                        IconButton(onClick = { viewModel.syncMetadata() }) {
+                            Icon(Icons.Default.Sync, contentDescription = "Sync Metadata")
+                        }
                     }
                     IconButton(onClick = { launcher.launch(null) }) {
                         Icon(
@@ -141,6 +167,26 @@ fun RetroStashScreen(
                         Spacer(Modifier.height(16.dp))
                         Text(
                             text = "AI is sorting archive contents...",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            }
+
+            if (isSyncingMetadata) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = syncProgress,
                             style = MaterialTheme.typography.bodyLarge
                         )
                     }

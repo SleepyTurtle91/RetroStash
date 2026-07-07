@@ -37,13 +37,13 @@ class DownloadCompletedReceiver : BroadcastReceiver() {
 
                 if (status == DownloadManager.STATUS_SUCCESSFUL) {
                     val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                    val localUri = cursor.getString(localUriIndex)
+                    val titleIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TITLE)
                     
-                    // Convert URI to file path correctly by decoding
-                    val filePath: String? = if (localUri != null) Uri.parse(localUri).path else null
+                    val localUri = cursor.getString(localUriIndex)
+                    val title = cursor.getString(titleIndex)
 
-                    if (filePath != null && (filePath.endsWith(".zip") || filePath.endsWith(".7z") || filePath.endsWith(".rar"))) {
-                        enqueueUnzipWork(context, filePath)
+                    if (localUri != null && title != null && (title.endsWith(".zip") || title.endsWith(".7z") || title.endsWith(".rar"))) {
+                        enqueueUnzipWork(context, localUri, title)
                     }
                 }
             }
@@ -51,7 +51,7 @@ class DownloadCompletedReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun enqueueUnzipWork(context: Context, filePath: String) {
+    private fun enqueueUnzipWork(context: Context, fileUri: String, fileName: String) {
         val settingsRepository = SettingsRepository(context)
         val treeUri = runBlocking { settingsRepository.sdCardUriFlow.first() }
 
@@ -60,9 +60,9 @@ class DownloadCompletedReceiver : BroadcastReceiver() {
             return
         }
 
-        val fileName = filePath.substringAfterLast("/")
         val workData = Data.Builder()
-            .putString("file_path", filePath)
+            .putString("file_uri", fileUri)
+            .putString("file_name", fileName)
             .putString("tree_uri", treeUri)
             .build()
 
@@ -73,6 +73,6 @@ class DownloadCompletedReceiver : BroadcastReceiver() {
             .build()
 
         WorkManager.getInstance(context).enqueue(workRequest)
-        Log.d("DownloadReceiver", "Enqueued UnzipWorker for $filePath with tag unzip_$fileName")
+        Log.d("DownloadReceiver", "Enqueued UnzipWorker for $fileUri with tag unzip_$fileName")
     }
 }

@@ -20,6 +20,7 @@ class ArchiveDownloadManager(private val context: Context) {
             .setDestinationInExternalFilesDir(context, null, filename)
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
+            .addRequestHeader("User-Agent", "RetroStash-App (Android; DownloadManager)")
 
         return downloadManager.enqueue(request)
     }

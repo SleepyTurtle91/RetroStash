@@ -15,8 +15,10 @@ import kotlinx.coroutines.flow.first
 import com.lemonsquad.retrostash.data.model.ArchiveFile
 import com.lemonsquad.retrostash.data.model.ArchiveMetadata
 import com.lemonsquad.retrostash.data.remote.ArchiveApiService
+import com.lemonsquad.retrostash.data.remote.ArchiveQueryBuilder
 import com.lemonsquad.retrostash.service.ArchiveDownloadManager
 import com.lemonsquad.retrostash.service.DownloadQueueManager
+import com.lemonsquad.retrostash.service.MetadataManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,6 +58,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isAiFiltering = MutableStateFlow(false)
     val isAiFiltering: StateFlow<Boolean> = _isAiFiltering.asStateFlow()
 
+    private val _isSyncingMetadata = MutableStateFlow(false)
+    val isSyncingMetadata: StateFlow<Boolean> = _isSyncingMetadata.asStateFlow()
+
+    private val _syncProgress = MutableStateFlow("")
+    val syncProgress: StateFlow<String> = _syncProgress.asStateFlow()
+
     private val _aiFilterEvent = MutableStateFlow<AiFilterEvent?>(null)
     val aiFilterEvent: StateFlow<AiFilterEvent?> = _aiFilterEvent.asStateFlow()
 
@@ -66,9 +74,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedFolderUri = MutableStateFlow<String?>(null)
     val selectedFolderUri: StateFlow<String?> = _selectedFolderUri.asStateFlow()
 
+    private val _syncFolderUri = MutableStateFlow<String?>(null)
+    val syncFolderUri: StateFlow<String?> = _syncFolderUri.asStateFlow()
+
     init {
         viewModelScope.launch {
             _selectedFolderUri.value = settingsRepository.sdCardUriFlow.first()
+            _syncFolderUri.value = settingsRepository.syncFolderUriFlow.first()
         }
     }
 
@@ -117,10 +129,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveFolderUri(uri: Uri) {
-        val context = getApplication<Application>()
-        val takeFlags: Int = (Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-        context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        getApplication<Application>().contentResolver.takePersistableUriPermission(uri, flags)
         
         viewModelScope.launch {
             settingsRepository.saveSdCardUri(uri.toString())
@@ -128,8 +138,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun saveSyncFolderUri(uri: Uri) {
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        getApplication<Application>().contentResolver.takePersistableUriPermission(uri, flags)
+        
+        viewModelScope.launch {
+            settingsRepository.saveSyncFolderUri(uri.toString())
+            _syncFolderUri.value = uri.toString()
+        }
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
-    
+
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
@@ -152,113 +172,66 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentIdentifier = MutableStateFlow<String?>(null)
     val currentIdentifier: StateFlow<String?> = _currentIdentifier.asStateFlow()
 
-    fun loadCollection(query: String) {
-        if (query.isBlank()) return
-        Log.i("MainViewModel", "loadCollection query: $query")
-        
+    fun loadCollection(identifier: String) {
+        if (identifier.isBlank()) return
+        _currentIdentifier.value = identifier
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Try direct identifier first
-                var targetIdentifier = query
-                Log.d("MainViewModel", "Attempting direct identifier: $targetIdentifier")
-                var metadata = try {
-                    apiService.getMetadata(query)
+                val targetIdentifier = try {
+                    val metadata = apiService.getMetadata(identifier)
+                    if (metadata.files.isEmpty()) throw Exception("Empty metadata")
+                    identifier
                 } catch (e: Exception) {
-                    null
+                    val query = ArchiveQueryBuilder.buildOptimizedQuery(identifier)
+                    val searchResponse = apiService.search(query)
+                    searchResponse.response.docs.firstOrNull()?.identifier ?: throw Exception("No matches found for $identifier")
                 }
 
-                val allFoundFileStates = mutableListOf<FileItemState>()
-
-                // If direct identifier worked, convert its files to states
-                if (metadata != null && metadata.files.isNotEmpty()) {
-                    val allowedExtensions = setOf(
-                        "iso", "sfc", "bin", "smd", "gba", "nes", "n64", "chd", "cue",
-                        "zip", "7z", "rar", "z64", "v64", "nds", "3ds", "pbp", "cso", "rvz"
-                    )
-                    val blockedExtensions = setOf("xml", "txt", "json", "png", "jpg")
-                    
-                    val validFiles = metadata.files.filter { file ->
-                        val ext = file.name.substringAfterLast('.', "").lowercase()
-                        val lowerName = file.name.lowercase()
-                        ext in allowedExtensions && ext !in blockedExtensions && 
-                        !lowerName.contains("__ia_thumb") && !lowerName.startsWith("_")
-                    }
-                    
-                    allFoundFileStates.addAll(validFiles.map { 
-                        FileItemState(file = it, identifier = targetIdentifier) 
-                    })
+                _currentIdentifier.value = targetIdentifier
+                val metadata = apiService.getMetadata(targetIdentifier)
+                val fileItemStates = metadata.files.map { file ->
+                    FileItemState(file = file, identifier = targetIdentifier)
                 }
 
-                // If direct identifier failed or we want more (matching archive.org search), perform search
-                if (allFoundFileStates.isEmpty() || !query.contains(":")) {
-                    Log.d("MainViewModel", "Performing optimized search for: $query")
-                    val searchQuery = com.lemonsquad.retrostash.data.remote.ArchiveQueryBuilder.buildOptimizedQuery(query)
-                    val searchResponse = apiService.search(searchQuery)
-                    Log.d("MainViewModel", "Search found ${searchResponse.response.docs.size} documents")
-                    
-                    val allowedExtensions = setOf(
-                        "iso", "sfc", "bin", "smd", "gba", "nes", "n64", "chd", "cue",
-                        "zip", "7z", "rar", "z64", "v64", "nds", "3ds", "pbp", "cso", "rvz"
-                    )
-
-                    // Collect files from top results
-                    for (doc in searchResponse.response.docs.take(10)) { 
-                        val resultIdentifier = doc.identifier
-                        val resultUploader = doc.uploader
-                        Log.d("MainViewModel", "Checking search result identifier: $resultIdentifier")
-                        val resultMetadata = try {
-                            apiService.getMetadata(resultIdentifier)
-                        } catch (e: Exception) {
-                            null
-                        }
-                        
-                        if (resultMetadata != null) {
-                            val validFiles = resultMetadata.files.filter { file ->
-                                val ext = file.name.substringAfterLast('.', "").lowercase()
-                                val lowerName = file.name.lowercase()
-                                ext in allowedExtensions && !lowerName.contains("__ia_thumb") && !lowerName.startsWith("_")
-                            }
-                            if (validFiles.isNotEmpty()) {
-                                if (allFoundFileStates.isEmpty()) {
-                                    targetIdentifier = resultIdentifier 
-                                }
-                                allFoundFileStates.addAll(validFiles.map { 
-                                    FileItemState(file = it, identifier = resultIdentifier, uploader = resultUploader) 
-                                })
-                                Log.i("MainViewModel", "Added ${validFiles.size} files from $resultIdentifier")
-                            }
-                        }
-                    }
-                }
-
-                if (allFoundFileStates.isNotEmpty()) {
-                    _currentIdentifier.value = targetIdentifier
-                    
-                    val sortedStates = allFoundFileStates.sortedWith(
-                        compareByDescending<FileItemState> { it.file.source == "original" }
-                            .thenBy { it.file.name }
-                    )
-
-                    Log.i("MainViewModel", "Total Filtered ROM files: ${sortedStates.size}")
-                    _uiState.value = sortedStates
-
-                    // Silent AI Auditor Trigger (Fallback logic included)
+                val isAuditorEnabled = settingsRepository.isAiAuditorEnabledFlow.first()
+                if (isAuditorEnabled && fileItemStates.isNotEmpty()) {
                     val apiKey = settingsRepository.geminiApiKeyFlow.first()
-                    val isAuditorEnabled = settingsRepository.isAiAuditorEnabledFlow.first()
-                    
-                    if (!apiKey.isNullOrBlank() && isAuditorEnabled) {
-                        applyAiFilter(query)
+                    if (!apiKey.isNullOrBlank()) {
+                        _isAiFiltering.value = true
+                        try {
+                            val currentFiles = fileItemStates.map { it.file }
+                            val filteredFilenames = withContext(Dispatchers.Default) {
+                                AIFilterEngine.filterCollection(
+                                    apiKey = apiKey,
+                                    userRequest = "Exclude junk files, manuals, duplicate regions (keep USA/En), and non-game files.",
+                                    rawFileList = currentFiles
+                                )
+                            }
+                            if (filteredFilenames != null && filteredFilenames.isNotEmpty()) {
+                                _uiState.value = fileItemStates.filter { state ->
+                                    filteredFilenames.contains(state.file.name)
+                                }
+                            } else {
+                                _uiState.value = fileItemStates
+                                _aiFilterEvent.value = AiFilterEvent.Error("AI Auditor returned empty or failed. Showing all files.")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("MainViewModel", "AI Auditor failed", e)
+                            _uiState.value = fileItemStates
+                            _aiFilterEvent.value = AiFilterEvent.Error("AI Auditor failed: ${e.message}")
+                        } finally {
+                            _isAiFiltering.value = false
+                        }
                     } else {
-                        Log.i("MainViewModel", "Skipping AI Audit: API Key missing or Auditor disabled.")
+                        _uiState.value = fileItemStates
                     }
                 } else {
-                    Log.w("MainViewModel", "No valid files found for query: $query")
-                    _uiState.value = emptyList()
+                    _uiState.value = fileItemStates
                 }
             } catch (e: Exception) {
-                Log.e("MainViewModel", "Error loading collection for query: $query", e)
-                _uiState.value = emptyList()
+                Log.e("MainViewModel", "Error loading collection", e)
             } finally {
                 _isLoading.value = false
             }
@@ -266,10 +239,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun downloadFile(fileItem: FileItemState) {
-        val identifier = fileItem.identifier
+        val folderUriStr = _selectedFolderUri.value ?: return
+        val folderUri = Uri.parse(folderUriStr)
         val fileName = fileItem.file.name
-        queueManager.enqueue(identifier, fileName)
-        
+
+        // Logic to trigger download via ArchiveDownloadManager (which uses DownloadManager)
+        val downloadManager = ArchiveDownloadManager(getApplication())
+        val downloadId = downloadManager.enqueueDownload(
+            identifier = fileItem.identifier,
+            filename = fileName
+        )
+
         // Update state to Downloading (or queued)
         updateFileStatus(fileName, FileStatus.DOWNLOADING)
         
@@ -292,6 +272,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun updateFileStatus(fileName: String, status: FileStatus) {
         _uiState.value = _uiState.value.map {
             if (it.file.name == fileName) it.copy(status = status) else it
+        }
+    }
+
+    fun syncMetadata() {
+        val folderUriStr = _syncFolderUri.value ?: _selectedFolderUri.value ?: return
+        val folderUri = Uri.parse(folderUriStr)
+        
+        viewModelScope.launch {
+            val apiKey = settingsRepository.geminiApiKeyFlow.first()
+            if (apiKey.isNullOrBlank()) {
+                _aiFilterEvent.value = AiFilterEvent.MissingKey
+                return@launch
+            }
+
+            _isSyncingMetadata.value = true
+            MetadataManager.syncMetadata(
+                context = getApplication(),
+                folderUri = folderUri,
+                apiKey = apiKey,
+                onProgress = { message ->
+                    _syncProgress.value = message
+                }
+            )
+            _isSyncingMetadata.value = false
         }
     }
 }

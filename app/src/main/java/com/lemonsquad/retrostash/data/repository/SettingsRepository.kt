@@ -14,6 +14,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "se
 class SettingsRepository(private val context: Context) {
 
     private val KEY_SD_CARD_URI = stringPreferencesKey("sd_card_uri")
+    private val KEY_SYNC_FOLDER_URI = stringPreferencesKey("sync_folder_uri")
     private val KEY_GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
     private val KEY_AI_AUDITOR_ENABLED = androidx.datastore.preferences.core.booleanPreferencesKey("ai_auditor_enabled")
     private val KEY_MAX_ACTIVE_DOWNLOADS = androidx.datastore.preferences.core.intPreferencesKey("max_active_downloads")
@@ -21,6 +22,11 @@ class SettingsRepository(private val context: Context) {
     val sdCardUriFlow: Flow<String?> = context.dataStore.data
         .map { preferences ->
             preferences[KEY_SD_CARD_URI]
+        }
+
+    val syncFolderUriFlow: Flow<String?> = context.dataStore.data
+        .map { preferences ->
+            preferences[KEY_SYNC_FOLDER_URI]
         }
 
     val geminiApiKeyFlow: Flow<String?> = context.dataStore.data
@@ -41,6 +47,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun saveSdCardUri(uri: String) {
         context.dataStore.edit { preferences ->
             preferences[KEY_SD_CARD_URI] = uri
+        }
+    }
+
+    suspend fun saveSyncFolderUri(uri: String) {
+        context.dataStore.edit { preferences ->
+            preferences[KEY_SYNC_FOLDER_URI] = uri
         }
     }
 

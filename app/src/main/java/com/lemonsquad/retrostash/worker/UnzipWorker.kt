@@ -2,15 +2,12 @@ package com.lemonsquad.retrostash.worker
 
 import android.content.Context
 import android.net.Uri
-import android.os.Environment
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import java.io.File
-import java.io.FileOutputStream
-import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 class UnzipWorker(
     context: Context,
@@ -18,14 +15,9 @@ class UnzipWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val filePath = inputData.getString("file_path") ?: return Result.failure()
+        val fileUriString = inputData.getString("file_uri") ?: return Result.failure()
         val treeUriString = inputData.getString("tree_uri") ?: return Result.failure()
-        val zipFile = File(filePath)
-
-        if (!zipFile.exists()) {
-            Log.e("UnzipWorker", "File does not exist: $filePath")
-            return Result.failure()
-        }
+        val fileUri = Uri.parse(fileUriString)
 
         val treeUri = Uri.parse(treeUriString)
         val pickedDir = DocumentFile.fromTreeUri(applicationContext, treeUri) ?: return Result.failure()
@@ -38,55 +30,48 @@ class UnzipWorker(
         }
 
         return try {
-            ZipFile(zipFile).use { zf ->
-                val entries = zf.entries()
-                val totalUncompressedSize = zf.entries().asSequence().sumOf { it.size }
-                var extractedBytes = 0L
-
-                while (entries.hasMoreElements()) {
-                    val entry = entries.nextElement()
-                    if (entry.isDirectory) {
-                        createDirectoryRecursive(outputDir, entry.name)
-                    } else {
-                        val fileName = entry.name.substringAfterLast("/")
-                        val parentPath = if (entry.name.contains("/")) entry.name.substringBeforeLast("/") else ""
-                        
-                        val targetParentDir = if (parentPath.isNotEmpty()) {
-                            createDirectoryRecursive(outputDir, parentPath)
+            applicationContext.contentResolver.openInputStream(fileUri)?.use { inputStream ->
+                ZipInputStream(inputStream).use { zis ->
+                    var entry = zis.nextEntry
+                    
+                    while (entry != null) {
+                        if (entry.isDirectory) {
+                            createDirectoryRecursive(outputDir, entry.name)
                         } else {
-                            outputDir
-                        }
+                            val fileName = entry.name.substringAfterLast("/")
+                            val parentPath = if (entry.name.contains("/")) entry.name.substringBeforeLast("/") else ""
+                            
+                            val targetParentDir = if (parentPath.isNotEmpty()) {
+                                createDirectoryRecursive(outputDir, parentPath)
+                            } else {
+                                outputDir
+                            }
 
-                        if (targetParentDir != null) {
-                            val newFile = targetParentDir.createFile("application/octet-stream", fileName)
-                            if (newFile != null) {
-                                applicationContext.contentResolver.openOutputStream(newFile.uri)?.use { fos ->
-                                    zf.getInputStream(entry).use { inputStream ->
+                            if (targetParentDir != null) {
+                                val newFile = targetParentDir.createFile("application/octet-stream", fileName)
+                                if (newFile != null) {
+                                    applicationContext.contentResolver.openOutputStream(newFile.uri)?.use { fos ->
                                         val buffer = ByteArray(8192)
                                         var bytesRead: Int
-                                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                                        while (zis.read(buffer).also { bytesRead = it } != -1) {
                                             fos.write(buffer, 0, bytesRead)
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    
-                    // Update progress based on entry size
-                    extractedBytes += entry.size
-                    if (totalUncompressedSize > 0) {
-                        val progress = (extractedBytes.toFloat() / totalUncompressedSize).coerceIn(0f, 1f)
-                        setProgress(workDataOf("progress" to progress))
+                        zis.closeEntry()
+                        entry = zis.nextEntry
                     }
                 }
             }
 
             // Clean up source file
-            if (zipFile.delete()) {
-                Log.d("UnzipWorker", "Deleted source file: $filePath")
-            } else {
-                Log.w("UnzipWorker", "Failed to delete source file: $filePath")
+            try {
+                applicationContext.contentResolver.delete(fileUri, null, null)
+                Log.d("UnzipWorker", "Deleted source file: $fileUriString")
+            } catch (e: Exception) {
+                Log.w("UnzipWorker", "Failed to delete source file: $fileUriString")
             }
 
             Result.success()

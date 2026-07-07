@@ -1,6 +1,7 @@
 package com.lemonsquad.retrostash.data.remote
 
 import android.util.Log
+import kotlinx.serialization.Serializable
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.Schema
 import com.google.ai.client.generativeai.type.content
@@ -17,6 +18,18 @@ object AIFilterEngine {
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
+
+    @Serializable
+    data class MetadataSyncResponse(
+        val system_repo_name: String,
+        val games: List<GameMetadata>
+    )
+
+    @Serializable
+    data class GameMetadata(
+        val original_filename: String,
+        val clean_title: String
+    )
 
     /**
      * Filters a list of archive files based on a user's natural language request.
@@ -60,7 +73,7 @@ object AIFilterEngine {
         }
 
         val model = GenerativeModel(
-            modelName = "gemini-2.5-flash",
+            modelName = "gemini-3.5-flash-lite",
             apiKey = apiKey,
             generationConfig = config,
             systemInstruction = systemInstruction
@@ -100,6 +113,68 @@ object AIFilterEngine {
             json.decodeFromString<List<String>>(responseText)
         } catch (e: Exception) {
             Log.e("AIFilterEngine", "AI Filtering failed or returned invalid JSON", e)
+            null
+        }
+    }
+
+    /**
+     * Analyzes a list of filenames to identify the game system and provide clean titles.
+     * 
+     * @param filenames List of local filenames to process.
+     * @return MetadataSyncResponse containing the system repo name and mapping of clean titles.
+     */
+    suspend fun identifySystemAndCleanTitles(
+        apiKey: String,
+        filenames: List<String>
+    ): MetadataSyncResponse? {
+        if (apiKey.isBlank() || filenames.isEmpty()) return null
+
+        val schema = Schema.obj(
+            "metadata_sync",
+            "Information for Libretro thumbnail syncing",
+            Schema.str("system_repo_name", "The Libretro GitHub repository name (e.g., Nintendo_-_Nintendo_3DS)"),
+            Schema.arr(
+                "games",
+                "List of games with clean titles",
+                Schema.obj(
+                    "game",
+                    "Individual game metadata",
+                    Schema.str("original_filename", "The exact original filename"),
+                    Schema.str("clean_title", "The clean title matching Libretro naming (e.g., 'Pokemon Ultra Moon')")
+                )
+            )
+        )
+
+        val config = generationConfig {
+            responseMimeType = "application/json"
+            responseSchema = schema
+            temperature = 0.1f
+        }
+
+        val systemInstruction = content {
+            text(
+                "You are an expert in Libretro/RetroArch metadata. Your task is to analyze a list of filenames and:\n" +
+                "1. Identify the single most likely Libretro System Repository Name that covers these files (e.g., 'Sony_-_PlayStation_2', 'Nintendo_-_Nintendo_3DS', 'Sega_-_Mega_Drive_-_Genesis'). Use underscores instead of spaces.\n" +
+                "2. For each filename, provide a 'clean_title' that exactly matches the Libretro Named_Boxarts convention. Remove all region tags, revision info, and bracketed text. Keep only the core game name.\n" +
+                "3. Output only valid JSON matching the schema."
+            )
+        }
+
+        val model = GenerativeModel(
+            modelName = "gemini-3.5-flash-lite",
+            apiKey = apiKey,
+            generationConfig = config,
+            systemInstruction = systemInstruction
+        )
+
+        val prompt = "Analyze these filenames and provide Libretro metadata: \n" + filenames.joinToString("\n")
+
+        return try {
+            val response = model.generateContent(prompt)
+            val responseText = response.text ?: return null
+            json.decodeFromString<MetadataSyncResponse>(responseText)
+        } catch (e: Exception) {
+            Log.e("AIFilterEngine", "Metadata analysis failed", e)
             null
         }
     }
