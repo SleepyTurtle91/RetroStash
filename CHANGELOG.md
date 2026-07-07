@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2026-07-07
+
+### Added
+- **Wide Search & Matching**: Added wide search and partial matching capabilities to make collection filtering more flexible.
+- **Download Queue**: Added a queue manager to organize and execute multiple downloads sequentially.
+- **CI/CD Workflow**: Added GitHub Actions workflow for automatic Android builds and releasing APKs.
+
+### Fixed
+- **AI Silent Auditor Crash**: Resolved a crash when using the AI features caused by missing Ktor client dependencies, and improved error handling for Gemini API requests.
+
 ## [1.1.0] - 2024-05-23
+
 
 ### Fixed
 - **Extraction Failure**: Resolved an issue where file extraction would fail for archives containing spaces or special characters in their filenames due to incorrect URL decoding.

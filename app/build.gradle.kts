@@ -12,10 +12,19 @@ android {
         applicationId = "com.lemonsquad.retrostash"
         minSdk = 26
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("release.keystore")
+            storePassword = "retrostashpassword"
+            keyAlias = "retrostash"
+            keyPassword = "retrostashpassword"
+        }
     }
 
     buildTypes {
@@ -23,6 +32,7 @@ android {
             optimization {
                 enable = false
             }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
