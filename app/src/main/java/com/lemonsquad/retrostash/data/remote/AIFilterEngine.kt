@@ -197,4 +197,32 @@ object AIFilterEngine {
             null
         }
     }
+
+    /**
+     * Checks if the provided Gemini API key is valid and has connectivity.
+     *
+     * @param apiKey The API key to test.
+     * @return Result with success status or error message.
+     */
+    suspend fun checkApiHealth(apiKey: String): Result<String> {
+        if (apiKey.isBlank()) return Result.failure(Exception("API Key is empty"))
+
+        val model = GenerativeModel(
+            modelName = "gemini-3.1-flash-lite",
+            apiKey = apiKey
+        )
+
+        return try {
+            val response = model.generateContent("Respond with only the word 'OK' if you can read this.")
+            val text = response.text?.trim()
+            if (text?.contains("OK", ignoreCase = true) == true) {
+                Result.success("Connected successfully!")
+            } else {
+                Result.failure(Exception("Unexpected response from AI"))
+            }
+        } catch (e: Exception) {
+            Log.e("AIFilterEngine", "API Health check failed", e)
+            Result.failure(e)
+        }
+    }
 }

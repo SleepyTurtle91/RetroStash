@@ -1,12 +1,14 @@
 package com.lemonsquad.retrostash.ui
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,16 +33,22 @@ fun SettingsScreen(
     val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val isAiAuditorEnabled by viewModel.isAiAuditorEnabled.collectAsState()
     val maxActiveDownloads by viewModel.maxActiveDownloads.collectAsState()
+    val apiHealthStatus by viewModel.apiHealthStatus.collectAsState()
+    val isCheckingHealth by viewModel.isCheckingHealth.collectAsState()
     
     SettingsScreenContent(
         geminiApiKey = geminiApiKey,
         isAiAuditorEnabled = isAiAuditorEnabled,
         maxActiveDownloads = maxActiveDownloads,
+        apiHealthStatus = apiHealthStatus,
+        isCheckingHealth = isCheckingHealth,
         onBackClick = onBackClick,
         onSaveApiKey = { viewModel.saveGeminiApiKey(it) },
         onClearApiKey = { viewModel.clearGeminiApiKey() },
         onToggleAiAuditor = { viewModel.setAiAuditorEnabled(it) },
-        onMaxDownloadsChange = { viewModel.setMaxActiveDownloads(it) }
+        onMaxDownloadsChange = { viewModel.setMaxActiveDownloads(it) },
+        onCheckHealth = { viewModel.checkApiHealth(it) },
+        onDismissHealthStatus = { viewModel.clearApiHealthStatus() }
     )
 }
 
@@ -50,11 +58,15 @@ fun SettingsScreenContent(
     geminiApiKey: String?,
     isAiAuditorEnabled: Boolean,
     maxActiveDownloads: Int,
+    apiHealthStatus: Result<String>?,
+    isCheckingHealth: Boolean,
     onBackClick: () -> Unit,
     onSaveApiKey: (String) -> Unit,
     onClearApiKey: () -> Unit,
     onToggleAiAuditor: (Boolean) -> Unit,
-    onMaxDownloadsChange: (Int) -> Unit
+    onMaxDownloadsChange: (Int) -> Unit,
+    onCheckHealth: (String) -> Unit,
+    onDismissHealthStatus: () -> Unit
 ) {
     val context = LocalContext.current
     var apiKeyInput by remember { mutableStateOf("") }
@@ -118,6 +130,48 @@ fun SettingsScreenContent(
                 Icon(Icons.Default.Save, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Save API Key")
+            }
+
+            OutlinedButton(
+                onClick = { onCheckHealth(apiKeyInput) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = apiKeyInput.isNotBlank() && !isCheckingHealth
+            ) {
+                if (isCheckingHealth) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Default.HealthAndSafety, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Check Connectivity")
+                }
+            }
+
+            AnimatedVisibility(visible = apiHealthStatus != null) {
+                apiHealthStatus?.let { result ->
+                    val color = if (result.isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    val message = if (result.isSuccess) result.getOrThrow() else "Connection Failed: ${result.exceptionOrNull()?.message}"
+                    
+                    Surface(
+                        color = color.copy(alpha = 0.1f),
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = color,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = onDismissHealthStatus) {
+                                Text("Dismiss", color = color)
+                            }
+                        }
+                    }
+                }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -210,11 +264,15 @@ fun SettingsScreenPreview() {
             geminiApiKey = null,
             isAiAuditorEnabled = false,
             maxActiveDownloads = 2,
+            apiHealthStatus = null,
+            isCheckingHealth = false,
             onBackClick = {},
             onSaveApiKey = {},
             onClearApiKey = {},
             onToggleAiAuditor = {},
-            onMaxDownloadsChange = {}
+            onMaxDownloadsChange = {},
+            onCheckHealth = {},
+            onDismissHealthStatus = {}
         )
     }
 }
