@@ -42,4 +42,11 @@ class ArchiveQueryBuilderTest {
         // Check that terms are ANDed together
         assertTrue(query.contains("pokemon* AND ultra* AND moon*"))
     }
+
+    @Test
+    fun testBuildOptimizedQuery_PartialID() {
+        val query = ArchiveQueryBuilder.buildOptimizedQuery("miiverse", ArchiveCategory.ALL)
+        // Check that identifier uses double wildcards for partial matching
+        assertTrue(query.contains("identifier:(*miiverse*)"))
+    }
 }

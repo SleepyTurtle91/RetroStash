@@ -23,8 +23,19 @@ object ArchiveQueryBuilder {
                 }
             }
 
+        // Special handling for partial ID: wrap in double wildcards to catch miiverse -> archiveteam_miiverse
+        val idSearchTerms = sanitizedInput.split("\\s+".toRegex())
+            .filter { it.isNotBlank() }
+            .joinToString(" AND ") { term ->
+                if (term.contains("*") || term.contains(":")) {
+                    term
+                } else {
+                    "*$term*"
+                }
+            }
+
         // 1. The Lucene Boost: Forces the API to prioritize titles, identifiers, and subjects
-        val boostedTerms = "(title:($searchTerms)^100 OR identifier:($searchTerms)^100 OR subject:($searchTerms)^50 OR description:($searchTerms)^10 OR ($searchTerms))"
+        val boostedTerms = "(title:($searchTerms)^100 OR identifier:($idSearchTerms)^100 OR subject:($searchTerms)^50 OR description:($searchTerms)^10 OR ($searchTerms))"
 
         if (sanitizedInput.contains(":")) {
              return applyCategoryFilter(sanitizedInput, category)
