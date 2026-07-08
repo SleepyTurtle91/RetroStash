@@ -128,8 +128,14 @@ object AIFilterEngine {
                 .removePrefix("```json")
                 .removeSuffix("```")
                 .trim()
+            
+            Log.d("AIFilterEngine", "Raw AI Response: $responseText")
+            Log.d("AIFilterEngine", "Cleaned AI Response: $cleanedJson")
 
-            json.decodeFromString<ApprovedList>(cleanedJson).approved_filenames
+            val parsed = json.decodeFromString<ApprovedList>(cleanedJson)
+            Log.d("AIFilterEngine", "Parsed approved filenames count: ${parsed.approved_filenames.size}")
+            
+            parsed.approved_filenames
         } catch (e: Exception) {
             Log.e("AIFilterEngine", "AI Filtering failed or returned invalid JSON", e)
             null

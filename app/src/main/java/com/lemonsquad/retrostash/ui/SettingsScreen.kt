@@ -247,28 +247,6 @@ fun SettingsScreenContent(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            Text(
-                text = "Storage Configuration",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            FolderSelectionItem(
-                title = "Download Destination (SD Card)",
-                subtitle = "Where ROMs and files will be downloaded.",
-                uri = sdCardUri,
-                onClick = { sdCardLauncher.launch(null) }
-            )
-
-            FolderSelectionItem(
-                title = "Scraper Folder Path",
-                subtitle = "Folder to scan for metadata and box art sync.",
-                uri = syncFolderUri,
-                onClick = { syncFolderLauncher.launch(null) }
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Max Active Downloads", style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -287,28 +265,6 @@ fun SettingsScreenContent(
                     modifier = Modifier.align(Alignment.End)
                 )
             }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            Text(
-                text = "Storage Configuration",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            FolderSelectionItem(
-                title = "Download Destination (SD Card)",
-                subtitle = "Where ROMs and files will be downloaded.",
-                uri = sdCardUri,
-                onClick = { sdCardLauncher.launch(null) }
-            )
-
-            FolderSelectionItem(
-                title = "Scraper Folder Path",
-                subtitle = "Folder to scan for metadata and box art sync.",
-                uri = syncFolderUri,
-                onClick = { syncFolderLauncher.launch(null) }
-            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
