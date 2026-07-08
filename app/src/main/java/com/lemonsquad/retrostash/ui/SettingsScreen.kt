@@ -1,6 +1,9 @@
 package com.lemonsquad.retrostash.ui
 
 import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
@@ -35,6 +39,8 @@ fun SettingsScreen(
     val maxActiveDownloads by viewModel.maxActiveDownloads.collectAsState()
     val apiHealthStatus by viewModel.apiHealthStatus.collectAsState()
     val isCheckingHealth by viewModel.isCheckingHealth.collectAsState()
+    val sdCardUri by viewModel.sdCardUri.collectAsState()
+    val syncFolderUri by viewModel.syncFolderUri.collectAsState()
     
     SettingsScreenContent(
         geminiApiKey = geminiApiKey,
@@ -42,13 +48,17 @@ fun SettingsScreen(
         maxActiveDownloads = maxActiveDownloads,
         apiHealthStatus = apiHealthStatus,
         isCheckingHealth = isCheckingHealth,
+        sdCardUri = sdCardUri,
+        syncFolderUri = syncFolderUri,
         onBackClick = onBackClick,
         onSaveApiKey = { viewModel.saveGeminiApiKey(it) },
         onClearApiKey = { viewModel.clearGeminiApiKey() },
         onToggleAiAuditor = { viewModel.setAiAuditorEnabled(it) },
         onMaxDownloadsChange = { viewModel.setMaxActiveDownloads(it) },
         onCheckHealth = { viewModel.checkApiHealth(it) },
-        onDismissHealthStatus = { viewModel.clearApiHealthStatus() }
+        onDismissHealthStatus = { viewModel.clearApiHealthStatus() },
+        onSaveSdCardUri = { viewModel.saveSdCardUri(it) },
+        onSaveSyncFolderUri = { viewModel.saveSyncFolderUri(it) }
     )
 }
 
@@ -60,16 +70,32 @@ fun SettingsScreenContent(
     maxActiveDownloads: Int,
     apiHealthStatus: Result<String>?,
     isCheckingHealth: Boolean,
+    sdCardUri: String?,
+    syncFolderUri: String?,
     onBackClick: () -> Unit,
     onSaveApiKey: (String) -> Unit,
     onClearApiKey: () -> Unit,
     onToggleAiAuditor: (Boolean) -> Unit,
     onMaxDownloadsChange: (Int) -> Unit,
     onCheckHealth: (String) -> Unit,
-    onDismissHealthStatus: () -> Unit
+    onDismissHealthStatus: () -> Unit,
+    onSaveSdCardUri: (Uri) -> Unit,
+    onSaveSyncFolderUri: (Uri) -> Unit
 ) {
     val context = LocalContext.current
     var apiKeyInput by remember { mutableStateOf("") }
+
+    val sdCardLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { onSaveSdCardUri(it) }
+    }
+
+    val syncFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { onSaveSyncFolderUri(it) }
+    }
 
     // Update input field when the stored key changes (initial load)
     LaunchedEffect(geminiApiKey) {
@@ -176,6 +202,28 @@ fun SettingsScreenContent(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            Text(
+                text = "Storage Configuration",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            FolderSelectionItem(
+                title = "Download Destination (SD Card)",
+                subtitle = "Where ROMs and files will be downloaded.",
+                uri = sdCardUri,
+                onClick = { sdCardLauncher.launch(null) }
+            )
+
+            FolderSelectionItem(
+                title = "Scraper Folder Path",
+                subtitle = "Folder to scan for metadata and box art sync.",
+                uri = syncFolderUri,
+                onClick = { syncFolderLauncher.launch(null) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -199,6 +247,28 @@ fun SettingsScreenContent(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
+            Text(
+                text = "Storage Configuration",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            FolderSelectionItem(
+                title = "Download Destination (SD Card)",
+                subtitle = "Where ROMs and files will be downloaded.",
+                uri = sdCardUri,
+                onClick = { sdCardLauncher.launch(null) }
+            )
+
+            FolderSelectionItem(
+                title = "Scraper Folder Path",
+                subtitle = "Folder to scan for metadata and box art sync.",
+                uri = syncFolderUri,
+                onClick = { syncFolderLauncher.launch(null) }
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Max Active Downloads", style = MaterialTheme.typography.titleMedium)
                 Text(
@@ -217,6 +287,28 @@ fun SettingsScreenContent(
                     modifier = Modifier.align(Alignment.End)
                 )
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Text(
+                text = "Storage Configuration",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            FolderSelectionItem(
+                title = "Download Destination (SD Card)",
+                subtitle = "Where ROMs and files will be downloaded.",
+                uri = sdCardUri,
+                onClick = { sdCardLauncher.launch(null) }
+            )
+
+            FolderSelectionItem(
+                title = "Scraper Folder Path",
+                subtitle = "Folder to scan for metadata and box art sync.",
+                uri = syncFolderUri,
+                onClick = { syncFolderLauncher.launch(null) }
+            )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -256,6 +348,45 @@ fun SettingsScreenContent(
     }
 }
 
+@Composable
+fun FolderSelectionItem(
+    title: String,
+    subtitle: String,
+    uri: String?,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall)
+                if (uri != null) {
+                    Text(
+                        text = "Path: ${Uri.decode(uri).substringAfterLast(":")}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = null,
+                tint = if (uri != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 fun SettingsScreenPreview() {
@@ -266,13 +397,17 @@ fun SettingsScreenPreview() {
             maxActiveDownloads = 2,
             apiHealthStatus = null,
             isCheckingHealth = false,
+            sdCardUri = null,
+            syncFolderUri = null,
             onBackClick = {},
             onSaveApiKey = {},
             onClearApiKey = {},
             onToggleAiAuditor = {},
             onMaxDownloadsChange = {},
             onCheckHealth = {},
-            onDismissHealthStatus = {}
+            onDismissHealthStatus = {},
+            onSaveSdCardUri = {},
+            onSaveSyncFolderUri = {}
         )
     }
 }

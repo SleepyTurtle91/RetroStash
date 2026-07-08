@@ -47,7 +47,6 @@ fun RetroStashScreen(
     val syncProgress by viewModel.syncProgress.collectAsState()
     val aiFilterEvent by viewModel.aiFilterEvent.collectAsState()
     val selectedFolderUri by viewModel.selectedFolderUri.collectAsState()
-    val syncFolderUri by viewModel.syncFolderUri.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     
     var identifier by remember { mutableStateOf("") }
@@ -76,18 +75,6 @@ fun RetroStashScreen(
         }
     }
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        uri?.let { viewModel.saveFolderUri(it) }
-    }
-
-    val syncFolderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        uri?.let { viewModel.saveSyncFolderUri(it) }
-    }
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -99,30 +86,6 @@ fun RetroStashScreen(
                     }
                     IconButton(onClick = onSettingsClick) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                    IconButton(onClick = { syncFolderLauncher.launch(null) }) {
-                        Icon(
-                            imageVector = if (syncFolderUri == null) 
-                                Icons.Filled.FolderCopy 
-                            else 
-                                Icons.Filled.FolderCopy,
-                            contentDescription = "Select Sync Folder",
-                            tint = if (syncFolderUri != null) MaterialTheme.colorScheme.primary else LocalContentColor.current
-                        )
-                    }
-                    if (selectedFolderUri != null || syncFolderUri != null) {
-                        IconButton(onClick = { viewModel.syncMetadata() }) {
-                            Icon(Icons.Default.Sync, contentDescription = "Sync Metadata")
-                        }
-                    }
-                    IconButton(onClick = { launcher.launch(null) }) {
-                        Icon(
-                            imageVector = if (selectedFolderUri == null) 
-                                Icons.Filled.Folder 
-                            else 
-                                Icons.Filled.FolderSpecial,
-                            contentDescription = "Select SD Card Folder"
-                        )
                     }
                 }
             )
@@ -171,11 +134,15 @@ fun RetroStashScreen(
                 }
                 
                 if (selectedFolderUri == null) {
-                    Text(
-                        text = "Please select a destination folder (SD Card) using the folder icon above.",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    TextButton(
+                        onClick = onSettingsClick,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Please set up your destination folder in Settings.",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
 
                 if (isLandscape) {

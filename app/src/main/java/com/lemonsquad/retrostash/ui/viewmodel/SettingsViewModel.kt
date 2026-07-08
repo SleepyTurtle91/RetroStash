@@ -1,6 +1,7 @@
 package com.lemonsquad.retrostash.ui.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lemonsquad.retrostash.data.remote.AIFilterEngine
@@ -14,6 +15,20 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsRepository = SettingsRepository(application)
+
+    val sdCardUri: StateFlow<String?> = settingsRepository.sdCardUriFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val syncFolderUri: StateFlow<String?> = settingsRepository.syncFolderUriFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
 
     private val _apiHealthStatus = MutableStateFlow<Result<String>?>(null)
     val apiHealthStatus: StateFlow<Result<String>?> = _apiHealthStatus.asStateFlow()
@@ -63,6 +78,18 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setMaxActiveDownloads(count: Int) {
         viewModelScope.launch {
             settingsRepository.setMaxActiveDownloads(count)
+        }
+    }
+
+    fun saveSdCardUri(uri: Uri) {
+        viewModelScope.launch {
+            settingsRepository.saveSdCardUri(uri.toString())
+        }
+    }
+
+    fun saveSyncFolderUri(uri: Uri) {
+        viewModelScope.launch {
+            settingsRepository.saveSyncFolderUri(uri.toString())
         }
     }
 
