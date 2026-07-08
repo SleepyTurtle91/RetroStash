@@ -9,7 +9,7 @@ import androidx.work.WorkManager
 import android.content.Intent
 import android.net.Uri
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.lemonsquad.retrostash.data.remote.AIFilterEngine
+import com.lemonsquad.retrostash.data.remote.AICoreEngine
 import com.lemonsquad.retrostash.data.remote.ArchiveCategory
 import com.lemonsquad.retrostash.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.first
@@ -107,7 +107,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 // Perform filtering in a background thread to avoid blocking UI during large list processing
                 val filteredFilenames = withContext(Dispatchers.Default) {
-                    AIFilterEngine.filterCollection(
+                    AICoreEngine.processRequest(
                         apiKey = apiKey,
                         userRequest = userRequest,
                         rawFileList = currentFiles
@@ -220,7 +220,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         try {
                             val currentFiles = fileItemStates.map { it.file }
                             val filteredFilenames = withContext(Dispatchers.Default) {
-                                AIFilterEngine.filterCollection(
+                                AICoreEngine.processRequest(
                                     apiKey = apiKey,
                                     userRequest = "Exclude junk files, manuals, duplicate regions (keep USA/En), and non-game files.",
                                     rawFileList = currentFiles
