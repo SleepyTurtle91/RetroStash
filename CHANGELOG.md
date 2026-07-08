@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-07-08
+
+### Added
+- **Multi-Category Search**: Added support for querying across multiple archive categories simultaneously.
+- **Landscape Optimization**: Optimized the user interface layout for landscape orientation, offering better grid spacing and responsive sizing on wide screens.
+
+### Improved
+- **AI Model Upgrade**: Upgraded the backend AI filtering engine to use the `gemini-3.1-flash-lite` model for faster and more cost-effective natural language querying.
+- **Search Query Precision**: Refactored query building logic to enforce `AND` operators on multi-word searches, ensuring much more specific and relevant results.
+- **Downloader & Extractor Stability**: Hardened background download queue manager and file extraction process (`UnzipWorker`) to prevent intermittent task drops.
+
 ## [1.1.3] - 2026-07-08
 
 ### Fixed
