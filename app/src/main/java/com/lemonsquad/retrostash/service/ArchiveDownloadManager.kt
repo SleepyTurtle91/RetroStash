@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Environment
 import android.util.Log
 
-class ArchiveDownloadManager(private val context: Context) {
+class ArchiveDownloadManager(context: Context) {
 
     private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
@@ -17,7 +17,7 @@ class ArchiveDownloadManager(private val context: Context) {
             .setTitle("Downloading $filename")
             .setDescription("RetroStash is downloading your game")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalFilesDir(context, null, filename)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
             .setAllowedOverMetered(true)
             .setAllowedOverRoaming(true)
             .addRequestHeader("User-Agent", "RetroStash-App (Android; DownloadManager)")
