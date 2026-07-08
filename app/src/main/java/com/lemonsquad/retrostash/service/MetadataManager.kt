@@ -25,10 +25,13 @@ object MetadataManager {
     ): Boolean = withContext(Dispatchers.IO) {
         try {
             val rootDoc = DocumentFile.fromTreeUri(context, folderUri) ?: return@withContext false
-            val files = rootDoc.listFiles().filter { it.isFile && !it.name.isNullOrEmpty() && it.name != "gameList.xml" }
+            
+            // Look for RetroStash subfolder first
+            val retroStashDir = rootDoc.findFile("RetroStash") ?: rootDoc
+            val files = retroStashDir.listFiles().filter { it.isFile && !it.name.isNullOrEmpty() && it.name != "gameList.xml" }
             
             if (files.isEmpty()) {
-                onProgress("No files found to sync.")
+                onProgress("No files found to sync in ${retroStashDir.name}.")
                 return@withContext true
             }
 
@@ -43,10 +46,10 @@ object MetadataManager {
 
             onProgress("System identified: ${metadata.system_repo_name.replace("_", " ")}")
             
-            // Create images directory
-            var imagesDir = rootDoc.findFile("images")
+            // Create images directory inside retroStashDir
+            var imagesDir = retroStashDir.findFile("images")
             if (imagesDir == null) {
-                imagesDir = rootDoc.createDirectory("images")
+                imagesDir = retroStashDir.createDirectory("images")
             }
             if (imagesDir == null) {
                 onProgress("Failed to create images directory.")
@@ -93,7 +96,7 @@ object MetadataManager {
             gameEntries.forEach { xmlContent.append(it).append("\n") }
             xmlContent.append("</gameList>")
 
-            val xmlFile = rootDoc.findFile("gameList.xml") ?: rootDoc.createFile("text/xml", "gameList.xml")
+            val xmlFile = retroStashDir.findFile("gameList.xml") ?: retroStashDir.createFile("text/xml", "gameList.xml")
             if (xmlFile != null) {
                 context.contentResolver.openOutputStream(xmlFile.uri)?.use { outputStream ->
                     OutputStreamWriter(outputStream).use { writer ->

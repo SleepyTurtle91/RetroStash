@@ -167,6 +167,41 @@ class DownloadsViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun cancelTask(task: DownloadTask) {
-        queueManager.cancel(task.fileName)
+        if (task.id.startsWith("queued_")) {
+            queueManager.cancel(task.fileName)
+        } else {
+            try {
+                val id = task.id.toLong()
+                downloadManager.remove(id)
+                queueManager.cancel(task.fileName)
+            } catch (e: Exception) {
+                // If ID is not long (WorkManager UUID), or remove fails
+                queueManager.cancel(task.fileName)
+            }
+        }
+    }
+
+    fun clearCompletedTasks() {
+        val query = DownloadManager.Query().setFilterByStatus(DownloadManager.STATUS_SUCCESSFUL or DownloadManager.STATUS_FAILED)
+        val cursor: Cursor? = try { downloadManager.query(query) } catch (e: Exception) { null }
+        
+        if (cursor != null && cursor.moveToFirst()) {
+            val idIdx = cursor.getColumnIndex(DownloadManager.COLUMN_ID)
+            val descIdx = cursor.getColumnIndex(DownloadManager.COLUMN_DESCRIPTION)
+            
+            do {
+                if (descIdx != -1) {
+                    val description = cursor.getString(descIdx)
+                    if (description == "RetroStash is downloading your game") {
+                        val id = cursor.getLong(idIdx)
+                        downloadManager.remove(id)
+                    }
+                }
+            } while (cursor.moveToNext())
+            cursor.close()
+        }
+
+        // Also prune WorkManager history for unzip tasks
+        workManager.pruneWork()
     }
 }

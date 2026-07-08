@@ -10,6 +10,7 @@ import android.content.Intent
 import android.net.Uri
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.lemonsquad.retrostash.data.remote.AIFilterEngine
+import com.lemonsquad.retrostash.data.remote.ArchiveCategory
 import com.lemonsquad.retrostash.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.first
 import com.lemonsquad.retrostash.data.model.ArchiveFile
@@ -76,6 +77,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _syncFolderUri = MutableStateFlow<String?>(null)
     val syncFolderUri: StateFlow<String?> = _syncFolderUri.asStateFlow()
+
+    private val _selectedCategory = MutableStateFlow(ArchiveCategory.ALL)
+    val selectedCategory: StateFlow<ArchiveCategory> = _selectedCategory.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -148,6 +152,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun selectCategory(category: ArchiveCategory) {
+        _selectedCategory.value = category
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
 
     private val okHttpClient = OkHttpClient.Builder()
@@ -184,7 +192,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (metadata.files.isEmpty()) throw Exception("Empty metadata")
                     identifier
                 } catch (e: Exception) {
-                    val query = ArchiveQueryBuilder.buildOptimizedQuery(identifier)
+                    val query = ArchiveQueryBuilder.buildOptimizedQuery(identifier, _selectedCategory.value)
                     val searchResponse = apiService.search(query)
                     searchResponse.response.docs.firstOrNull()?.identifier ?: throw Exception("No matches found for $identifier")
                 }

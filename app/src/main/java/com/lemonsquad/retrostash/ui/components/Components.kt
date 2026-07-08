@@ -18,11 +18,11 @@ fun SearchBar(
     onValueChange: (String) -> Unit,
     onLoadClick: () -> Unit,
     isLoading: Boolean,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier = modifier
+            .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         TextField(

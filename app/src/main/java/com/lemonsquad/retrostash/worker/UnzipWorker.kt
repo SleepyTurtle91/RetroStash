@@ -30,43 +30,60 @@ class UnzipWorker(
         }
 
         return try {
-            applicationContext.contentResolver.openInputStream(fileUri)?.use { inputStream ->
-                ZipInputStream(inputStream).use { zis ->
-                    var entry = zis.nextEntry
-                    
-                    while (entry != null) {
-                        if (entry.isDirectory) {
-                            createDirectoryRecursive(outputDir, entry.name)
-                        } else {
-                            val fileName = entry.name.substringAfterLast("/")
-                            val parentPath = if (entry.name.contains("/")) entry.name.substringBeforeLast("/") else ""
-                            
-                            val targetParentDir = if (parentPath.isNotEmpty()) {
-                                createDirectoryRecursive(outputDir, parentPath)
+            val extension = fileUriString.substringAfterLast(".").lowercase()
+            val isZip = extension == "zip"
+            
+            if (isZip) {
+                applicationContext.contentResolver.openInputStream(fileUri)?.use { inputStream ->
+                    ZipInputStream(inputStream).use { zis ->
+                        var entry = zis.nextEntry
+                        
+                        while (entry != null) {
+                            if (entry.isDirectory) {
+                                createDirectoryRecursive(outputDir, entry.name)
                             } else {
-                                outputDir
-                            }
+                                val fileName = entry.name.substringAfterLast("/")
+                                val parentPath = if (entry.name.contains("/")) entry.name.substringBeforeLast("/") else ""
+                                
+                                val targetParentDir = if (parentPath.isNotEmpty()) {
+                                    createDirectoryRecursive(outputDir, parentPath)
+                                } else {
+                                    outputDir
+                                }
 
-                            if (targetParentDir != null) {
-                                val newFile = targetParentDir.createFile("application/octet-stream", fileName)
-                                if (newFile != null) {
-                                    applicationContext.contentResolver.openOutputStream(newFile.uri)?.use { fos ->
-                                        val buffer = ByteArray(8192)
-                                        var bytesRead: Int
-                                        while (zis.read(buffer).also { bytesRead = it } != -1) {
-                                            fos.write(buffer, 0, bytesRead)
+                                if (targetParentDir != null) {
+                                    val newFile = targetParentDir.createFile("application/octet-stream", fileName)
+                                    if (newFile != null) {
+                                        applicationContext.contentResolver.openOutputStream(newFile.uri)?.use { fos ->
+                                            val buffer = ByteArray(8192)
+                                            var bytesRead: Int
+                                            while (zis.read(buffer).also { bytesRead = it } != -1) {
+                                                fos.write(buffer, 0, bytesRead)
+                                            }
                                         }
                                     }
                                 }
                             }
+                            zis.closeEntry()
+                            entry = zis.nextEntry
                         }
-                        zis.closeEntry()
-                        entry = zis.nextEntry
                     }
+                }
+            } else {
+                // Not a zip file, move it directly to RetroStash folder
+                val fileName = inputData.getString("file_name") ?: "unknown_file"
+                val newFile = outputDir.createFile("application/octet-stream", fileName)
+                if (newFile != null) {
+                    applicationContext.contentResolver.openInputStream(fileUri)?.use { inputStream ->
+                        applicationContext.contentResolver.openOutputStream(newFile.uri)?.use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                    Log.d("UnzipWorker", "Moved non-zip file to RetroStash: $fileName")
                 }
             }
 
-            // Clean up source file
+            // Clean up source file ONLY if successful
             try {
                 applicationContext.contentResolver.delete(fileUri, null, null)
                 Log.d("UnzipWorker", "Deleted source file: $fileUriString")

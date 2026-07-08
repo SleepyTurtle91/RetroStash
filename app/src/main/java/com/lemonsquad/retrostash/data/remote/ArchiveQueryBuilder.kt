@@ -5,22 +5,22 @@ object ArchiveQueryBuilder {
     /**
      * Transforms a raw user search string into an optimized Archive.org Lucene query.
      */
-    fun buildOptimizedQuery(userInput: String): String {
+    fun buildOptimizedQuery(userInput: String, category: ArchiveCategory = ArchiveCategory.ALL): String {
         var sanitizedInput = userInput.trim()
         
         if (sanitizedInput.isEmpty()) {
-            return "mediatype:(software)"
+            return applyCategoryFilter("mediatype:(software)", category)
         }
 
-        // Check for "all:" prefix for wide search
-        val isWideSearch = sanitizedInput.startsWith("all:", ignoreCase = true)
-        if (isWideSearch) {
+        // Check for "all:" prefix for wide search (legacy support)
+        val isWideSearch = sanitizedInput.startsWith("all:", ignoreCase = true) || category == ArchiveCategory.ALL
+        if (sanitizedInput.startsWith("all:", ignoreCase = true)) {
             sanitizedInput = sanitizedInput.substring(4).trim()
         }
 
-        // If the user is already using advanced syntax (contains a colon), return as is
+        // If the user is already using advanced syntax (contains a colon), return as is, but still wrap if needed
         if (sanitizedInput.contains(":") && !isWideSearch) {
-            return sanitizedInput
+            return applyCategoryFilter(sanitizedInput, category)
         }
 
         // Support partial matching by wrapping each term in wildcards if not already present
@@ -37,17 +37,29 @@ object ArchiveQueryBuilder {
         // 1. The Lucene Boost: Forces the API to prioritize titles, identifiers, and subjects
         val boostedTerms = "(title:($searchTerms)^100 OR identifier:($searchTerms)^100 OR subject:($searchTerms)^50 OR ($searchTerms))"
 
-        if (isWideSearch) {
-            return boostedTerms
+        return applyCategoryFilter(boostedTerms, category)
+    }
+
+    private fun applyCategoryFilter(query: String, category: ArchiveCategory): String {
+        val categoryFilter = when (category) {
+            ArchiveCategory.ALL -> ""
+            ArchiveCategory.SOFTWARE -> "AND mediatype:(software)"
+            ArchiveCategory.ROMS -> "AND mediatype:(software) AND (subject:(rom) OR subject:(roms))"
+            ArchiveCategory.PC_GAMES -> "AND mediatype:(software) AND subject:(\"pc games\")"
+            ArchiveCategory.BOOKS -> "AND mediatype:(texts)"
+            ArchiveCategory.MOVIES -> "AND mediatype:(movies)"
+            ArchiveCategory.AUDIO -> "AND (mediatype:(audio) OR mediatype:(etree))"
+            ArchiveCategory.IMAGES -> "AND mediatype:(image)"
+            ArchiveCategory.DATA -> "AND mediatype:(data)"
         }
 
-        // 2. The Media Filter: Restricts results to software/games
-        val mediaFilter = "mediatype:(software)"
+        // The Junk Filter: Hides common non-game files, but disable it for non-software categories
+        val excludeJunk = if (category == ArchiveCategory.SOFTWARE || category == ArchiveCategory.ROMS || category == ArchiveCategory.PC_GAMES || category == ArchiveCategory.ALL) {
+            "AND -subject:(soundtrack OR manual OR magazine OR book)"
+        } else {
+            ""
+        }
 
-        // 3. The Junk Filter: Hides common non-game files
-        val excludeJunk = "-subject:(soundtrack OR manual OR magazine OR book)"
-
-        // Combine everything into the final query string
-        return "$boostedTerms AND $mediaFilter AND $excludeJunk"
+        return "$query $categoryFilter $excludeJunk".trim().replace("\\s+".toRegex(), " ")
     }
 }

@@ -31,6 +31,11 @@ object AIFilterEngine {
         val clean_title: String
     )
 
+    @Serializable
+    private data class ApprovedList(
+        val approved_filenames: List<String>
+    )
+
     /**
      * Filters a list of archive files based on a user's natural language request.
      *
@@ -46,11 +51,15 @@ object AIFilterEngine {
     ): List<String>? {
         if (apiKey.isBlank() || rawFileList.isEmpty()) return emptyList()
 
-        // Define a strict schema: a raw array of strings
-        val schema = Schema.arr(
-            name = "approved_filenames",
-            description = "List of filenames matching user criteria",
-            items = Schema.str("filename", "The exact name of the file")
+        // Define a strict schema: an object with a field 'approved_filenames'
+        val schema = Schema.obj(
+            "approved_list",
+            "Object containing list of approved filenames",
+            Schema.arr(
+                "approved_filenames",
+                "List of filenames matching user criteria",
+                Schema.str("filename", "The exact name of the file")
+            )
         )
 
         val config = generationConfig {
@@ -61,19 +70,20 @@ object AIFilterEngine {
 
         val systemInstruction = content {
             text(
-                "You are an expert retro gaming librarian and JSON data processor. Your sole task is to filter an array of raw Archive.org search results based on a user's natural language filter criteria.\n" +
+                "You are an expert retro gaming librarian and JSON data processor. Your sole task is to filter and SORT an array of raw Archive.org search results based on a user's natural language filter criteria.\n" +
                 "\n" +
                 "Strict Rules:\n" +
                 "1. Analyze the 'Filename', 'Format', and 'Size' of each item to determine if it matches the user's filtering request.\n" +
                 "2. Filter out items that do not match the genre, console, or condition requested.\n" +
                 "3. If the user specifies \"Exclude duplicates\", look for files with identical game names but different regions/versions, and prioritize the cleanest/best region (e.g., USA/Global over JP/EU beta versions, or zip/iso over text/manuals).\n" +
-                "4. Output your response ONLY as a valid JSON array matching the requested schema.\n" +
-                "5. Do not include any markdown formatting wrappers (like ```json), explanations, or conversational text. Return only the raw JSON."
+                "4. SORT the resulting list alphabetically by game title.\n" +
+                "5. Output your response ONLY as a valid JSON object matching the requested schema.\n" +
+                "6. Do not include any markdown formatting wrappers (like ```json), explanations, or conversational text. Return only the raw JSON."
             )
         }
 
         val model = GenerativeModel(
-            modelName = "gemini-3.5-flash-lite",
+            modelName = "gemini-3.1-flash-lite",
             apiKey = apiKey,
             generationConfig = config,
             systemInstruction = systemInstruction
@@ -100,7 +110,7 @@ object AIFilterEngine {
             - If requested to de-duplicate, keep only the definitive file for each unique game title.
 
             ### Step 4: Format the Output
-            Generate a JSON array of strings containing ONLY the exact, unaltered Filenames that matched the criteria.
+            Generate a JSON object containing a field "approved_filenames" which is an array of strings containing ONLY the exact, unaltered Filenames that matched the criteria.
 
             ### Output:
         """.trimIndent()
@@ -110,7 +120,7 @@ object AIFilterEngine {
             val responseText = response.text ?: return emptyList()
 
             // Parsing logic to turn the AI's JSON string back into a Kotlin List<String>
-            json.decodeFromString<List<String>>(responseText)
+            json.decodeFromString<ApprovedList>(responseText).approved_filenames
         } catch (e: Exception) {
             Log.e("AIFilterEngine", "AI Filtering failed or returned invalid JSON", e)
             null
@@ -161,7 +171,7 @@ object AIFilterEngine {
         }
 
         val model = GenerativeModel(
-            modelName = "gemini-3.5-flash-lite",
+            modelName = "gemini-3.1-flash-lite",
             apiKey = apiKey,
             generationConfig = config,
             systemInstruction = systemInstruction

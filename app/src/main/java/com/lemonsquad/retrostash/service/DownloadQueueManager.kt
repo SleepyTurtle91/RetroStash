@@ -7,6 +7,7 @@ import com.lemonsquad.retrostash.data.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +31,34 @@ class DownloadQueueManager(private val context: Context) {
 
     private val _activeDownloads = MutableStateFlow<Map<String, Long>>(emptyMap())
     val activeDownloads: StateFlow<Map<String, Long>> = _activeDownloads.asStateFlow()
+
+    init {
+        monitorDownloads()
+    }
+
+    private fun monitorDownloads() {
+        scope.launch {
+            while (true) {
+                delay(2000)
+                val activeEntries = _activeDownloads.value.entries.toList()
+                activeEntries.forEach { (filename, downloadId) ->
+                    val query = DownloadManager.Query().setFilterById(downloadId)
+                    val cursor = downloadManager.query(query)
+                    if (cursor.moveToFirst()) {
+                        val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                        if (statusIdx != -1) {
+                            val status = cursor.getInt(statusIdx)
+                            if (status == DownloadManager.STATUS_FAILED) {
+                                Log.e("DownloadQueue", "Download failed for $filename, unblocking queue")
+                                onDownloadCompleted(downloadId)
+                            }
+                        }
+                    }
+                    cursor.close()
+                }
+            }
+        }
+    }
 
     fun enqueue(identifier: String, filename: String) {
         val newItem = QueuedDownload(identifier, filename)

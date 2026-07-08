@@ -1,23 +1,25 @@
 # RetroStash
 
-RetroStash is an Android application designed for retro gaming enthusiasts. It allows users to browse archive collections (specifically from Archive.org), intelligently filter them using AI, and download ROMs directly to their device (e.g., SD card).
+RetroStash is an Android application designed for retro gaming enthusiasts and archivists. It allows users to browse Archive.org collections, intelligently filter them using AI, and download files directly to their device with robust handling for handheld consoles.
 
-## What's New (v1.1)
+## What's New (v1.2)
 
-- **Gemini 2.5 Flash Integration**: Upgraded to the latest AI model for faster and more accurate filtering.
-- **Robust AI Filtering**: Improved error handling to distinguish between network failures and "no matches" states. Existing search results are now preserved during and after filtering failures.
-- **Optimized Search Performance**: Rewritten query engine to use optimized Lucene trailing wildcards, significantly reducing timeouts for complex searches (like "3DS pokemon xyz").
-- **Enhanced UI Stability**: Added background threading for AI processing to ensure zero frame drops during heavy data sorting.
-- **Improved Network Resilience**: Increased request timeouts to 30 seconds for better reliability with large archive datasets.
+- **Gemini 3.1 Flash-Lite Integration**: Upgraded to the latest stable AI model for state-of-the-art filtering and metadata analysis.
+- **Multi-Category Search**: Expanded beyond software to support **Roms, PC Games, Books, Movies, Audio, Images, and Data** with specialized Lucene query builders.
+- **Landscape & Handheld Optimization**: Optimized UI for 16:9 screens like the **Anbernic RG556/RG557**. Features a 2-column grid layout in landscape mode to maximize screen real estate.
+- **Reliable Downloader**: Implemented a "Move Fallback"—files that aren't Zips or fail extraction are moved safely to the destination instead of being deleted. **No more missing files.**
+- **Smart Queue Management**: Active monitoring of the download queue; if a download fails, the app automatically unblocks and starts the next task.
+- **AI-Powered Metadata & Box Art**: Enhanced scraper that targets the `RetroStash` subfolder and uses AI to identify systems and clean titles for Libretro compatibility.
+- **Downloads Maintenance**: Added a "Clear Finished" feature to easily prune completed and failed tasks from the downloads list.
 
 ## Features
 
-- **Collection Browsing**: Search for game collections by platform or identifier using optimized Lucene queries.
-- **AI-Powered Filtering**: Use natural language prompts to filter through large lists of files (e.g., "Only RPGs", "Exclude duplicates").
-- **Non-Destructive UI**: AI filtering acts as a "smart layer"—if the AI fails or finds nothing, your original search results remain untouched.
-- **Real-time Download Monitoring**: A dedicated Downloads screen to track active ROM downloads and extraction progress with live progress bars.
-- **Automatic Extraction**: Downloaded ZIP/RAR/7z archives are automatically unzipped to your RetroStash folder.
-- **Clean UI**: Built with Jetpack Compose for a modern and responsive user experience.
+- **Collection Browsing**: Search for everything from Roms to E-books using a new category-aware search engine.
+- **AI-Powered Filtering**: Use natural language prompts to filter and **auto-sort** large lists (e.g., "Only RPGs", "USA region only").
+- **Handheld Ready**: Fully responsive design that thrives on both portrait phones and landscape portable consoles.
+- **Real-time Download Monitoring**: Track active downloads and extraction progress with detailed status updates and progress bars.
+- **Automatic Extraction & Safe Moves**: ZIP archives are unzipped, while other formats are safely moved to your library.
+- **Metadata Sync**: Generates `gameList.xml` and downloads Named Boxarts for your local collection using Libretro conventions.
 
 ## Getting Started
 
@@ -30,16 +32,16 @@ RetroStash is an Android application designed for retro gaming enthusiasts. It a
 
 1. Launch the app.
 2. Tap the **Settings** (gear) icon in the top right.
-3. Enter your **Gemini API Key** and tap **Save API Key**.
-4. Tap the **Folder** icon in the top right to select your destination folder (e.g., a folder on your SD card for ROMs).
+3. Enter your **Gemini API Key**.
+4. Tap the **Folder** icon in the top right to select your destination folder (e.g., a folder on your SD card for ROMs). RetroStash will create a `RetroStash` subfolder for your files.
 
 ## Technical Details
 
 - **Language**: Kotlin
-- **UI Framework**: Jetpack Compose
-- **Networking**: Retrofit, OkHttp (30s timeouts), Ktor (for Gemini SDK)
-- **AI Engine**: Google Generative AI (**Gemini 2.5 Flash**)
-- **Background Tasks**: WorkManager for downloads, `Dispatchers.Default` for AI data processing.
+- **UI Framework**: Jetpack Compose (with adaptive landscape layouts)
+- **Networking**: Retrofit, OkHttp, Ktor
+- **AI Engine**: Google Generative AI (**Gemini 3.1 Flash-Lite**)
+- **Background Tasks**: WorkManager for unzipping, `DownloadManager` for robust background downloading.
 
 ## License
 
