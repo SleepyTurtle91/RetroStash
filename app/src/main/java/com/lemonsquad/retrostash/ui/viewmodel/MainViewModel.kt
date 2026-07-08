@@ -81,6 +81,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedCategory = MutableStateFlow(ArchiveCategory.ALL)
     val selectedCategory: StateFlow<ArchiveCategory> = _selectedCategory.asStateFlow()
 
+    private val _availableExtensions = MutableStateFlow<Set<String>>(emptySet())
+    val availableExtensions: StateFlow<Set<String>> = _availableExtensions.asStateFlow()
+
+    private val _selectedExtensions = MutableStateFlow<Set<String>>(emptySet())
+    val selectedExtensions: StateFlow<Set<String>> = _selectedExtensions.asStateFlow()
+
+    private var originalFileStates = emptyList<FileItemState>()
+
     init {
         viewModelScope.launch {
             _selectedFolderUri.value = settingsRepository.sdCardUriFlow.first()
@@ -157,6 +165,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _selectedCategory.value = category
     }
 
+    fun toggleExtension(extension: String) {
+        val current = _selectedExtensions.value.toMutableSet()
+        if (current.contains(extension)) {
+            current.remove(extension)
+        } else {
+            current.add(extension)
+        }
+        _selectedExtensions.value = current
+        applyExtensionFilter()
+    }
+
+    private fun applyExtensionFilter() {
+        val selected = _selectedExtensions.value
+        if (selected.isEmpty()) {
+            _uiState.value = originalFileStates
+        } else {
+            _uiState.value = originalFileStates.filter { state ->
+                val ext = state.file.name.substringAfterLast(".").lowercase()
+                selected.contains(ext)
+            }
+        }
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
 
     private val okHttpClient = OkHttpClient.Builder()
@@ -211,6 +242,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val fileItemStates = metadata.files.map { file ->
                     FileItemState(file = file, identifier = targetIdentifier)
                 }
+
+                // Identify available extensions
+                val extensions = fileItemStates.map { 
+                    it.file.name.substringAfterLast(".").lowercase() 
+                }.filter { it.length in 2..5 }.toSet()
+                
+                _availableExtensions.value = extensions
+                _selectedExtensions.value = emptySet()
+                originalFileStates = fileItemStates
 
                 val isAuditorEnabled = settingsRepository.isAiAuditorEnabledFlow.first()
                 if (isAuditorEnabled && fileItemStates.isNotEmpty()) {

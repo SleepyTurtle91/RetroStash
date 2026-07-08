@@ -2,6 +2,7 @@ package com.lemonsquad.retrostash.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -48,6 +49,8 @@ fun RetroStashScreen(
     val aiFilterEvent by viewModel.aiFilterEvent.collectAsState()
     val selectedFolderUri by viewModel.selectedFolderUri.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val availableExtensions by viewModel.availableExtensions.collectAsState()
+    val selectedExtensions by viewModel.selectedExtensions.collectAsState()
     
     var identifier by remember { mutableStateOf("") }
     
@@ -130,6 +133,30 @@ fun RetroStashScreen(
                             onClick = { viewModel.selectCategory(category) },
                             text = { Text(category.displayName) }
                         )
+                    }
+                }
+
+                if (availableExtensions.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Extensions:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        availableExtensions.sorted().forEach { ext ->
+                            FilterChip(
+                                selected = selectedExtensions.contains(ext),
+                                onClick = { viewModel.toggleExtension(ext) },
+                                label = { Text(".$ext") }
+                            )
+                        }
                     }
                 }
                 
