@@ -35,4 +35,11 @@ class ArchiveQueryBuilderTest {
         val query = ArchiveQueryBuilder.buildOptimizedQuery("batman", ArchiveCategory.MOVIES)
         assertTrue(query.contains("mediatype:(movies)"))
     }
+
+    @Test
+    fun testBuildOptimizedQuery_MultiWord() {
+        val query = ArchiveQueryBuilder.buildOptimizedQuery("pokemon ultra moon", ArchiveCategory.ALL)
+        // Check that terms are ANDed together
+        assertTrue(query.contains("pokemon* AND ultra* AND moon*"))
+    }
 }

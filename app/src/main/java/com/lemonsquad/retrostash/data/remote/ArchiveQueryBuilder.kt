@@ -26,7 +26,7 @@ object ArchiveQueryBuilder {
         // Support partial matching by wrapping each term in wildcards if not already present
         val searchTerms = sanitizedInput.split("\\s+".toRegex())
             .filter { it.isNotBlank() }
-            .joinToString(" ") { term ->
+            .joinToString(" AND ") { term ->
                 if (term.contains("*") || term.contains(":")) {
                     term
                 } else {
