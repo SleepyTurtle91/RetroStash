@@ -121,7 +121,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         filteredFilenames.contains(state.file.name)
                     }
                 } else {
-                    _aiFilterEvent.value = AiFilterEvent.Error("AI found no matches.")
+                    // Fail-safe: If AI manual filter returns empty, show a warning but don't clear UI
+                    _aiFilterEvent.value = AiFilterEvent.Error("AI found no matches for your custom filter.")
                 }
             } catch (t: Throwable) {
                 Log.e("MainViewModel", "AI Filtering failed", t)
@@ -230,8 +231,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     filteredFilenames.contains(state.file.name)
                                 }
                             } else {
+                                // Fail-safe: If AI returns empty or fails, show ALL files
                                 _uiState.value = fileItemStates
-                                _aiFilterEvent.value = AiFilterEvent.Error("AI Auditor returned empty or failed. Showing all files.")
+                                if (filteredFilenames != null) {
+                                    Log.w("MainViewModel", "AI Auditor returned 0 results. Falling back to all files.")
+                                }
                             }
                         } catch (e: Exception) {
                             Log.e("MainViewModel", "AI Auditor failed", e)
