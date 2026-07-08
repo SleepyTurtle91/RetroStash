@@ -140,7 +140,9 @@ fun RetroStashScreen(
                 SearchBar(
                     value = identifier,
                     onValueChange = { identifier = it },
-                    onLoadClick = { viewModel.loadCollection(identifier) },
+                    onLoadClick = { 
+                        viewModel.loadCollection(identifier) 
+                    },
                     isLoading = isLoading,
                     modifier = if (isLandscape) Modifier.padding(horizontal = 16.dp, vertical = 4.dp) else Modifier.padding(16.dp)
                 )

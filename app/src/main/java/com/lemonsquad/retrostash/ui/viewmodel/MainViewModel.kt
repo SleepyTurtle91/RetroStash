@@ -180,21 +180,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentIdentifier = MutableStateFlow<String?>(null)
     val currentIdentifier: StateFlow<String?> = _currentIdentifier.asStateFlow()
 
-    fun loadCollection(identifier: String) {
-        if (identifier.isBlank()) return
-        _currentIdentifier.value = identifier
-
+    fun loadCollection(identifierOrSearch: String) {
+        if (identifierOrSearch.isBlank()) return
+        
         viewModelScope.launch {
             _isLoading.value = true
+            _uiState.value = emptyList() // Clear old results immediately
             try {
+                // 1. Try to load as a direct identifier first
                 val targetIdentifier = try {
-                    val metadata = apiService.getMetadata(identifier)
+                    val metadata = apiService.getMetadata(identifierOrSearch)
                     if (metadata.files.isEmpty()) throw Exception("Empty metadata")
-                    identifier
+                    identifierOrSearch
                 } catch (e: Exception) {
-                    val query = ArchiveQueryBuilder.buildOptimizedQuery(identifier, _selectedCategory.value)
-                    val searchResponse = apiService.search(query)
-                    searchResponse.response.docs.firstOrNull()?.identifier ?: throw Exception("No matches found for $identifier")
+                    // 2. If metadata fails, treat as a search query
+                    val query = ArchiveQueryBuilder.buildOptimizedQuery(identifierOrSearch, _selectedCategory.value)
+                    val searchResponse = apiService.search(query, rows = 150) // Increased row count
+                    
+                    val results = searchResponse.response.docs
+                    if (results.isEmpty()) throw Exception("No matches found for $identifierOrSearch")
+                    
+                    // If multiple results, you might want to show a list of collections, 
+                    // but for now we follow existing logic of picking the first one.
+                    results.first().identifier
                 }
 
                 _currentIdentifier.value = targetIdentifier

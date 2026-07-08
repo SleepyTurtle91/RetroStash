@@ -12,17 +12,6 @@ object ArchiveQueryBuilder {
             return applyCategoryFilter("mediatype:(software)", category)
         }
 
-        // Check for "all:" prefix for wide search (legacy support)
-        val isWideSearch = sanitizedInput.startsWith("all:", ignoreCase = true) || category == ArchiveCategory.ALL
-        if (sanitizedInput.startsWith("all:", ignoreCase = true)) {
-            sanitizedInput = sanitizedInput.substring(4).trim()
-        }
-
-        // If the user is already using advanced syntax (contains a colon), return as is, but still wrap if needed
-        if (sanitizedInput.contains(":") && !isWideSearch) {
-            return applyCategoryFilter(sanitizedInput, category)
-        }
-
         // Support partial matching by wrapping each term in wildcards if not already present
         val searchTerms = sanitizedInput.split("\\s+".toRegex())
             .filter { it.isNotBlank() }
@@ -35,7 +24,11 @@ object ArchiveQueryBuilder {
             }
 
         // 1. The Lucene Boost: Forces the API to prioritize titles, identifiers, and subjects
-        val boostedTerms = "(title:($searchTerms)^100 OR identifier:($searchTerms)^100 OR subject:($searchTerms)^50 OR ($searchTerms))"
+        val boostedTerms = "(title:($searchTerms)^100 OR identifier:($searchTerms)^100 OR subject:($searchTerms)^50 OR description:($searchTerms)^10 OR ($searchTerms))"
+
+        if (sanitizedInput.contains(":")) {
+             return applyCategoryFilter(sanitizedInput, category)
+        }
 
         return applyCategoryFilter(boostedTerms, category)
     }
