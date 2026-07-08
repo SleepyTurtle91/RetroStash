@@ -101,13 +101,17 @@ object AIFilterEngine {
             Filter Request: "$userRequest" (e.g., "Only RPGs", "Exclude duplicates", "Only USA region games")
 
             ### Step 2: Analyze the Input Data
-            Scan the following raw archive data. Pay close attention to filenames, formats, and identifiers:
+            Scan the following raw archive data. Pay close attention to filenames, formats, and identifiers.
+            If the data is too large, prioritize the most relevant games matching the filter.
+            
+            Input Data:
             $fileListString
 
             ### Step 3: Filter and De-duplicate
             - Remove any files that are obviously not games (e.g., txt, log, cue, jpg, torrent, or pdf manuals) unless specifically requested.
             - Apply the Filter Request from Step 1 strictly using your knowledge of video game genres, regions, and platforms.
             - If requested to de-duplicate, keep only the definitive file for each unique game title.
+            - IF NO FILES MATCH, RETURN AN EMPTY ARRAY IN THE JSON OBJECT. DO NOT HALLUCINATE OR INCLUDE EXPLANATIONS.
 
             ### Step 4: Format the Output
             Generate a JSON object containing a field "approved_filenames" which is an array of strings containing ONLY the exact, unaltered Filenames that matched the criteria.
@@ -119,8 +123,13 @@ object AIFilterEngine {
             val response = model.generateContent(prompt)
             val responseText = response.text ?: return emptyList()
 
-            // Parsing logic to turn the AI's JSON string back into a Kotlin List<String>
-            json.decodeFromString<ApprovedList>(responseText).approved_filenames
+            // Robust cleaning of the response text to handle occasional markdown or whitespace
+            val cleanedJson = responseText.trim()
+                .removePrefix("```json")
+                .removeSuffix("```")
+                .trim()
+
+            json.decodeFromString<ApprovedList>(cleanedJson).approved_filenames
         } catch (e: Exception) {
             Log.e("AIFilterEngine", "AI Filtering failed or returned invalid JSON", e)
             null
