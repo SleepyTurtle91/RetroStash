@@ -74,11 +74,12 @@ object AIFilterEngine {
                 "\n" +
                 "Strict Rules:\n" +
                 "1. Analyze the 'Filename', 'Format', and 'Size' of each item to determine if it matches the user's filtering request.\n" +
-                "2. Filter out items that do not match the genre, console, or condition requested.\n" +
+                "2. Your goal is to identify HIGH-QUALITY game files (e.g., .iso, .chd, .zip, .3ds, .cia, .bin, .rvz).\n" +
                 "3. If the user specifies \"Exclude duplicates\", look for files with identical game names but different regions/versions, and prioritize the cleanest/best region (e.g., USA/Global over JP/EU beta versions, or zip/iso over text/manuals).\n" +
                 "4. SORT the resulting list alphabetically by game title.\n" +
                 "5. Output your response ONLY as a valid JSON object matching the requested schema.\n" +
-                "6. Do not include any markdown formatting wrappers (like ```json), explanations, or conversational text. Return only the raw JSON."
+                "6. Do not include any markdown formatting wrappers (like ```json), explanations, or conversational text. Return only the raw JSON.\n" +
+                "7. IMPORTANT: If there are valid game files in the input, you MUST include them. Do not return an empty list unless NOTHING in the input matches a game or the requested filter."
             )
         }
 
@@ -108,10 +109,10 @@ object AIFilterEngine {
             $fileListString
 
             ### Step 3: Filter and De-duplicate
-            - Remove any files that are obviously not games (e.g., txt, log, cue, jpg, torrent, or pdf manuals) unless specifically requested.
+            - Focus on finding actual game files (extensions like .zip, .iso, .3ds, .cia, .chd, .rvz, etc.).
             - Apply the Filter Request from Step 1 strictly using your knowledge of video game genres, regions, and platforms.
-            - If requested to de-duplicate, keep only the definitive file for each unique game title.
-            - IF NO FILES MATCH, RETURN AN EMPTY ARRAY IN THE JSON OBJECT. DO NOT HALLUCINATE OR INCLUDE EXPLANATIONS.
+            - If requested to de-duplicate, keep only the definitive file for each unique game title (preferring USA/World regions).
+            - IF NO FILES MATCH THE FILTER, BUT THERE ARE GAMES IN THE LIST, RETURN THE GAMES. ONLY RETURN EMPTY IF THE LIST IS COMPLETELY JUNK.
 
             ### Step 4: Format the Output
             Generate a JSON object containing a field "approved_filenames" which is an array of strings containing ONLY the exact, unaltered Filenames that matched the criteria.
